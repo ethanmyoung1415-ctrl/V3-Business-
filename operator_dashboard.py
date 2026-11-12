@@ -2,7 +2,7 @@
 import argparse,html,secrets,sqlite3,json
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import parse_qs,urlparse
-import engine,operations
+import engine,operations,triage
 
 def esc(value): return html.escape(str(value),quote=True)
 def document(content):
@@ -36,6 +36,9 @@ def job_page(db,job,csrf,notice=''):
 <input type="hidden" name="csrf" value="{esc(csrf)}"><input type="hidden" name="job" value="{esc(job)}">
 <input type="hidden" name="change" value="{esc(c['id'])}"><input type="hidden" name="decision" value="{decision}">
 <input name="reason" placeholder="Reason (required)" maxlength="300" required><button type="submit">{decision.capitalize()}</button></form>"""
+        advice=triage.assess_change(c)
+        forms+=('<p><small>Risk: '+esc(advice["risk"])+' | Suggested: '+
+                esc(advice["recommendation"])+' — '+esc(advice["explanation"])+'</small></p>')
         rows.append('<tr>'+''.join(f'<td>{esc(c[key])}</td>' for key in ('sku','field','old','new','status','reason'))+f'<td>{forms}</td></tr>')
     return document(f'<p><a href="/">← All jobs</a></p><section><h2>Job {esc(job[:12])}</h2><p>{esc(notice)}</p><h3>Unresolved holds ({len(r["holds"])})</h3><ul>{holds}</ul><h3>Proposed changes</h3><table><tr><th>SKU</th><th>Field</th><th>Old</th><th>Proposed</th><th>Status</th><th>Reason</th><th>Decision</th></tr>{"".join(rows)}</table></section>')
 def make_handler(db,csrf,actor):
