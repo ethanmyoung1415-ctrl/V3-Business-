@@ -29,7 +29,12 @@ def load(path):
         rows=[]
         for lineno,r in enumerate(reader,2):
             if None in r or any(v is None for v in r.values()): raise ValueError(f"malformed row {lineno}")
-            rows.append((lineno,{k.strip().lower():v for k,v in r.items()}))
+            cleaned={k.strip().lower():v for k,v in r.items()}
+            for field in ("sku","title"):
+                value=cleaned.get(field,"")
+                if value.lstrip().startswith(("=","+","-","@")) or any(ch in value for ch in ("\\x00","\\t","\\r","\\n")):
+                    raise ValueError(f"unsafe spreadsheet text in {field} at row {lineno}")
+            rows.append((lineno,cleaned))
             if len(rows)>100000: raise ValueError("too many rows")
     return rows,fields
 def setup(db):
