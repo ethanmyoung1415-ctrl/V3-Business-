@@ -124,8 +124,14 @@ def export(db,job,path):
         with path.open("x",encoding="utf-8",newline="") as f:
             writer=csv.DictWriter(f,fieldnames=FIELDS);writer.writeheader()
             writer.writerows(rows[sku] for sku in sorted(rows))
+        # Independent reconciliation is mandatory before recording export success.
+        import qa
+        verification=qa.verify(db,job,path)
+        if not verification["passed"]:
+            path.unlink(missing_ok=True)
+            raise ValueError("independent QA reconciliation failed; output removed")
         c.execute("UPDATE jobs SET status='exported' WHERE id=?",(job,))
-        log(c,job,"export",{"sha256":digest(path),"file":str(path)})
+        log(c,job,"export",{"sha256":digest(path),"file":str(path),"independent_qa":"passed"})
     return {"path":str(path),"sha256":digest(path),"rows":len(rows)}
 def main():
     parser=argparse.ArgumentParser()
