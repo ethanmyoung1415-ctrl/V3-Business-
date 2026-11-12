@@ -110,29 +110,49 @@ def decide(db,change,decision,actor,reason):
         log(c,row[0],"decision",{"change":change,"decision":decision,"actor":actor,"reason":reason})
     return {"change":change,"decision":decision}
 def export(db,job,path):
-    result=review(db,job)
-    if result["holds"] or any(r["status"]=="pending" for r in result["changes"]):
-        raise ValueError("holds or pending decisions block export")
+    """Export a reviewed snapshot; fail closed and remove partial outputs on errors."""
+    setup(db)
     path=Path(path)
     if path.exists(): raise ValueError("refusing to overwrite output")
-    with sqlite3.connect(db) as c:
+    wrote=False
+    with sqlite3.connect(db,timeout=30) as c:
         c.row_factory=sqlite3.Row
-        rows={r["sku"]:dict(r) for r in c.execute("SELECT sku,title,price,stock FROM base WHERE job=?",(job,))}
-        for change in result["changes"]:
-            if change["status"]=="approved": rows[change["sku"]][change["field"]]=change["new"]
-        path.parent.mkdir(parents=True,exist_ok=True)
-        with path.open("x",encoding="utf-8",newline="") as f:
-            writer=csv.DictWriter(f,fieldnames=FIELDS);writer.writeheader()
-            writer.writerows(rows[sku] for sku in sorted(rows))
-        # Independent reconciliation is mandatory before recording export success.
-        import qa
-        verification=qa.verify(db,job,path)
-        if not verification["passed"]:
-            path.unlink(missing_ok=True)
-            raise ValueError("independent QA reconciliation failed; output removed")
-        c.execute("UPDATE jobs SET status='exported' WHERE id=?",(job,))
-        log(c,job,"export",{"sha256":digest(path),"file":str(path),"independent_qa":"passed"})
-    return {"path":str(path),"sha256":digest(path),"rows":len(rows)}
+        c.execute("BEGIN IMMEDIATE")
+        job_row=c.execute("SELECT status,holds FROM jobs WHERE id=?",(job,)).fetchone()
+        if not job_row: raise ValueError("job not found")
+        if job_row["status"]=="exported": raise ValueError("job already exported")
+        if json.loads(job_row["holds"]): raise ValueError("unresolved holds block export")
+        changes=[dict(r) for r in c.execute(
+            "SELECT sku,field,new,status FROM changes WHERE job=?",(job,))]
+        if any(x["status"] not in ("approved","rejected") for x in changes):
+            raise ValueError("pending or invalid decisions block export")
+        rows={r["sku"]:dict(r) for r in c.execute(
+            "SELECT sku,title,price,stock FROM base WHERE job=?",(job,))}
+        for change in changes:
+            if change["status"]=="approved":
+                if change["sku"] not in rows or change["field"] not in FIELDS:
+                    raise ValueError("invalid approved change")
+                rows[change["sku"]][change["field"]]=change["new"]
+        try:
+            path.parent.mkdir(parents=True,exist_ok=True)
+            with path.open("x",encoding="utf-8",newline="") as f:
+                wrote=True
+                writer=csv.DictWriter(f,fieldnames=FIELDS)
+                writer.writeheader()
+                writer.writerows(rows[sku] for sku in sorted(rows))
+            # A second connection independently checks approved changes and CSV contents.
+            import qa
+            verification=qa.verify(db,job,path)
+            if not verification["passed"]:
+                raise ValueError("independent QA reconciliation failed")
+            c.execute("UPDATE jobs SET status='exported' WHERE id=?",(job,))
+            log(c,job,"export",{"sha256":verification["sha256"],
+                "file":str(path),"independent_qa":"passed"})
+        except Exception:
+            if wrote:
+                path.unlink(missing_ok=True)
+            raise
+    return {"path":str(path),"sha256":verification["sha256"],"rows":len(rows)}
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--db",default="v3.sqlite3")
