@@ -42,3 +42,17 @@ python engine.py --db v3.sqlite3 export JOB_ID approved.csv
 6. Conduct staged pilots with customer approval and no direct live writes
 
 **Operating principle:** AI executes routine work, software enforces safety, humans handle judgment and customer commitments.
+
+
+## Local operator console (prototype)
+After queuing and analyzing sample files, start:
+
+```bash
+python operator_dashboard.py --db v3.sqlite3 --actor operator
+```
+
+Open the printed local URL (normally http://127.0.0.1:8765/). Review queued and failed work, open jobs, and approve or reject proposed changes with a recorded reason.
+
+**Never expose the dashboard to the internet or a tunnel.** It is bound to `127.0.0.1`, has a CSRF token and HTML escaping, but **no authentication, authorization, tenant isolation, or hardened production deployment**. Use synthetic data only. No automatic export, customer communication, or store write is enabled.
+
+Run `python -m unittest discover -v` before trying it. Check GitHub Actions for the latest CI result.
