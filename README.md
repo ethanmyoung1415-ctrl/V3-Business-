@@ -56,3 +56,24 @@ Open the printed local URL (normally http://127.0.0.1:8765/). Review queued and 
 **Never expose the dashboard to the internet or a tunnel.** It is bound to `127.0.0.1`, has a CSRF token and HTML escaping, but **no authentication, authorization, tenant isolation, or hardened production deployment**. Use synthetic data only. No automatic export, customer communication, or store write is enabled.
 
 Run `python -m unittest discover -v` before trying it. Check GitHub Actions for the latest CI result.
+
+
+## Current milestone: local automated operations and independent verification
+
+The project now includes:
+- `worker.py` — optional polling worker for previously queued files, with no approval/export permissions
+- `app.py` — starts the local dashboard and worker together; stops the worker when the dashboard stops
+- `triage.py` — evidence-based, deterministic exception explanations; **not an LLM** and never an approval authority
+- `qa.py` — independent output reconciliation against preserved baseline and approved changes
+- `test_workflow_safety.py`, `test_triage.py`, and `test_qa.py` — safety and correctness regression tests
+
+### Sample-only walkthrough
+```bash
+python -m unittest discover -v
+python operations.py --db demo.sqlite3 enqueue examples/baseline.csv examples/supplier_update.csv
+python app.py --db demo.sqlite3 --actor local-operator
+```
+Open the local URL displayed in the terminal. The worker processes the queued CSV and presents pending changes and triage recommendations. Human approvals require reasons. To export, first resolve all pending decisions and holds, then use `engine.py export` and run `qa.py` on the resulting file. Only verified outputs should ever be used for a future customer pilot.
+
+### Critical deployment limitations
+This remains a **single-user, local, synthetic-data prototype**. Do **not** expose the web console to the network or put real customer data in it. It has no customer accounts, authorization, tenancy, encrypted data lifecycle, payment integration, production-grade web security, continuous uptime, or provider-approved AI integration. The repository is public. Never commit customer files, secrets, tokens, or personal data. Before production, have an experienced technical/security reviewer evaluate the architecture, threat model, storage, backups, access controls, recovery tests, and contractual obligations.
