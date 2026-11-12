@@ -77,3 +77,13 @@ Open the local URL displayed in the terminal. The worker processes the queued CS
 
 ### Critical deployment limitations
 This remains a **single-user, local, synthetic-data prototype**. Do **not** expose the web console to the network or put real customer data in it. It has no customer accounts, authorization, tenancy, encrypted data lifecycle, payment integration, production-grade web security, continuous uptime, or provider-approved AI integration. The repository is public. Never commit customer files, secrets, tokens, or personal data. Before production, have an experienced technical/security reviewer evaluate the architecture, threat model, storage, backups, access controls, recovery tests, and contractual obligations.
+
+## Synthetic stress check
+Run `python benchmark.py --rows 1000` to generate fictional catalog files and confirm the detection of one duplicate SKU, one unknown SKU, one blank value, a valid zero-stock update, and a large price increase. `python -m unittest discover -v` includes a 100-row and a 1,000-row synthetic benchmark. Timing is informational only, not an accuracy certification.
+
+## Development work queue
+- [Issue #1](https://github.com/ethanmyoung1415-ctrl/V3-Business-/issues/1): staged intake and tenant-ready isolation
+- [Issue #2](https://github.com/ethanmyoung1415-ctrl/V3-Business-/issues/2): operator exception management and observability
+- [Issue #3](https://github.com/ethanmyoung1415-ctrl/V3-Business-/issues/3): larger synthetic end-to-end validation
+
+Do not process real customer files, connect stores, or deploy publicly until the production gate has been met.
