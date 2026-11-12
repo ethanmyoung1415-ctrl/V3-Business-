@@ -1,8 +1,9 @@
 """Local-only V3 browser console. Never expose to an external network."""
-import argparse,html,secrets,sqlite3,json
+import argparse,html,secrets,sqlite3,json,uuid
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import parse_qs,urlparse
-import engine,operations,triage
+import engine,operations,triage,qa
 
 def esc(value): return html.escape(str(value),quote=True)
 def document(content):
@@ -24,6 +25,11 @@ def overview(db):
         link=f'<a href="/job/{esc(j["engine_job_id"])}">Review changes</a>' if j.get('engine_job_id') else '—'
         rows.append(f'<tr><td><code>{esc(j["id"][:12])}</code></td><td>{esc(j["status"])}</td><td>{esc(j.get("pending_decisions",0))}</td><td>{esc(j.get("holds",0))}</td><td>{esc(j.get("last_error") or "—")}</td><td>{link}</td></tr>')
     return document('<section><h2>Overview</h2>'+badges+'</section><section><h2>Jobs</h2><table><tr><th>ID</th><th>Status</th><th>Pending</th><th>Holds</th><th>Last error</th><th>Action</th></tr>'+''.join(rows)+'</table></section>')
+def output_path(db,job):
+    canonical=str(uuid.UUID(job))
+    if canonical!=job:raise ValueError("invalid job identifier")
+    return Path(db).resolve().parent/"exports"/(canonical+".csv")
+
 def job_page(db,job,csrf,notice=''):
     r=engine.review(db,job)
     holds=''.join(f'<li>{esc(json.dumps(h))}</li>' for h in r['holds'])
@@ -40,7 +46,16 @@ def job_page(db,job,csrf,notice=''):
         forms+=('<p><small>Risk: '+esc(advice["risk"])+' | Suggested: '+
                 esc(advice["recommendation"])+' — '+esc(advice["explanation"])+'</small></p>')
         rows.append('<tr>'+''.join(f'<td>{esc(c[key])}</td>' for key in ('sku','field','old','new','status','reason'))+f'<td>{forms}</td></tr>')
-    return document(f'<p><a href="/">← All jobs</a></p><section><h2>Job {esc(job[:12])}</h2><p>{esc(notice)}</p><h3>Unresolved holds ({len(r["holds"])})</h3><ul>{holds}</ul><h3>Proposed changes</h3><table><tr><th>SKU</th><th>Field</th><th>Old</th><th>Proposed</th><th>Status</th><th>Reason</th><th>Decision</th></tr>{"".join(rows)}</table></section>')
+    can_export=not r["holds"] and not any(c["status"]=="pending" for c in r["changes"])
+    export_html=""
+    if can_export:
+        if output_path(db,job).exists():
+            export_html=f'<p><a href="/download/{esc(job)}">Download independently verified CSV</a></p>'
+        else:
+            export_html=(f'<form method="post" action="/export"><input type="hidden" name="csrf" value="{esc(csrf)}">'
+                         f'<input type="hidden" name="job" value="{esc(job)}">'
+                         '<button type="submit">Prepare independently verified CSV</button></form>')
+    return document(f'<p><a href="/">← All jobs</a></p>{export_html}<section><h2>Job {esc(job[:12])}</h2><p>{esc(notice)}</p><h3>Unresolved holds ({len(r["holds"])})</h3><ul>{holds}</ul><h3>Proposed changes</h3><table><tr><th>SKU</th><th>Field</th><th>Old</th><th>Proposed</th><th>Status</th><th>Reason</th><th>Decision</th></tr>{"".join(rows)}</table></section>')
 def make_handler(db,csrf,actor):
     class Handler(BaseHTTPRequestHandler):
         def answer(self,body,status=200):
@@ -58,10 +73,26 @@ def make_handler(db,csrf,actor):
             try:
                 if path=='/':self.answer(overview(db))
                 elif path.startswith('/job/'):self.answer(job_page(db,path[5:],csrf))
+                elif path.startswith('/download/'):
+                    job=path[len('/download/'):]
+                    file=output_path(db,job)
+                    if not file.exists():return self.send_error(404)
+                    verification=qa.verify(db,job,file)
+                    if not verification["passed"]:raise ValueError("export failed independent verification")
+                    b=file.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type","text/csv; charset=utf-8")
+                    self.send_header("Content-Disposition",f'attachment; filename="{job}.csv"')
+                    self.send_header("Content-Length",str(len(b)))
+                    self.send_header("Cache-Control","no-store")
+                    self.send_header("X-Content-Type-Options","nosniff")
+                    self.end_headers()
+                    self.wfile.write(b)
                 else:self.send_error(404)
             except (ValueError,sqlite3.Error) as ex:self.answer(document(f'<section>{esc(ex)}</section>'),400)
         def do_POST(self):
-            if urlparse(self.path).path!='/decide':return self.send_error(404)
+            route=urlparse(self.path).path
+            if route not in ('/decide','/export'):return self.send_error(404)
             try:
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<n<=16384:return self.send_error(413)
@@ -70,6 +101,13 @@ def make_handler(db,csrf,actor):
                 form=parse_qs(self.rfile.read(n).decode('utf-8'),strict_parsing=True)
                 one=lambda key: form[key][0] if len(form.get(key,[]))==1 else ''
                 if not secrets.compare_digest(one('csrf'),csrf):return self.send_error(403)
+                if route=="/export":
+                    job=one("job")
+                    file=output_path(db,job)
+                    if file.exists():raise ValueError("export already exists")
+                    engine.export(db,job,file)
+                    self.answer(job_page(db,job,csrf,"Independent QA passed; CSV ready to download"))
+                    return
                 job,change,decision,reason=(one(k) for k in ('job','change','decision','reason'))
                 if not job or not change or not reason.strip() or decision not in ('approved','rejected'):
                     raise ValueError('incomplete decision')
