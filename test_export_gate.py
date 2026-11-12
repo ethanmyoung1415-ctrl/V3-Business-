@@ -26,4 +26,16 @@ class ExportGateTests(unittest.TestCase):
             rows=conn.execute("SELECT details FROM events WHERE job=? AND kind='export'",(self.job,)).fetchall()
         self.assertEqual(len(rows),1)
         self.assertIn('"independent_qa": "passed"',rows[0][0])
+    def test_verifier_exception_removes_partial_file(self):
+        output=self.root/"interrupted.csv"
+        with patch("qa.verify",side_effect=RuntimeError("verification unavailable")):
+            with self.assertRaisesRegex(RuntimeError,"verification unavailable"):
+                engine.export(self.db,self.job,output)
+        self.assertFalse(output.exists())
+        self.assertEqual(engine.review(self.db,self.job)["job"]["status"],"review")
+    def test_export_only_once_per_job(self):
+        engine.export(self.db,self.job,self.root/"first.csv")
+        with self.assertRaisesRegex(ValueError,"already exported"):
+            engine.export(self.db,self.job,self.root/"second.csv")
+        self.assertFalse((self.root/"second.csv").exists())
 if __name__=="__main__":unittest.main()
