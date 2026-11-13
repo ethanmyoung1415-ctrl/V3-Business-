@@ -1,6 +1,6 @@
 import tempfile,unittest
 from pathlib import Path
-import workspace
+import workspaces as workspace
 class CustomerWorkspaceTests(unittest.TestCase):
     def setUp(self):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
