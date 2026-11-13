@@ -3,6 +3,9 @@ import os
 from pathlib import Path
 BASE_DIR=Path(__file__).resolve().parent.parent
 LOCAL_DEV=os.environ.get("V3_LOCAL_DEV")=="1"
+# Deliberate product-level release gate. Production hosting is not approved.
+if not LOCAL_DEV:
+    raise RuntimeError("V3 portal public deployment is disabled pending security review and owner authorization")
 DEBUG=LOCAL_DEV
 SECRET_KEY=os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
@@ -20,6 +23,7 @@ INSTALLED_APPS=[
 ]
 MIDDLEWARE=[
     "django.middleware.security.SecurityMiddleware",
+    "v3portal.local_only.LocalOnlyPortal",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
