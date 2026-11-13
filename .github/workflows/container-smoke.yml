@@ -1,0 +1,17 @@
+name: Synthetic container rehearsal
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  local-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build nonroot local-only test image
+        run: docker build --file deploy/Dockerfile.test --tag v3-synthetic-tests:ci .
+      - name: Run isolated portal tests (no port publish)
+        run: docker run --rm --network none v3-synthetic-tests:ci
+      - name: Test recovery drill (no port publish)
+        run: docker run --rm --network none v3-synthetic-tests:ci python recovery_drill.py
