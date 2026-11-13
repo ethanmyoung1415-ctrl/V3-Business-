@@ -6,6 +6,7 @@ from .forms import JobForm
 from .models import Store,Membership,CatalogJob,CatalogEvent
 from . import services,metrics
 import triage
+import engine
 
 def accessible_store(user,store_id):
     store=get_object_or_404(Store,pk=store_id,active=True)
@@ -58,6 +59,8 @@ def job_detail(request,job_id):
     details=None
     if can_review and job.status==CatalogJob.STATUS_REVIEW:
         details=services.review(job,request.user)
+        details["holds_with_tokens"]=engine.listed_holds(
+            services.backend_db(job.store_id),str(job.engine_job_id))
         for change in details["changes"]:
             change["advice"]=triage.assess_change(change)
     events=job.portal_events.select_related("actor").order_by("-created_at")[:30]
@@ -75,6 +78,18 @@ def decision(request,job_id):
     except (PermissionError,ValueError):
         raise Http404()
     return redirect("job_detail",job_id=job.id)
+
+@login_required
+@require_POST
+def exclude_hold(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        services.exclude_held_record(
+            job,request.user,request.POST.get("token",""),
+            request.POST.get("reason",""))
+    except (PermissionError,ValueError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.pk)
 
 @login_required
 @require_POST
