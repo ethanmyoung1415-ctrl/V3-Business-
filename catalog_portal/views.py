@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
 from .forms import JobForm
 from .models import Store,Membership,CatalogJob,CatalogEvent
-from . import services,metrics
+from . import services,metrics,notices
 import triage
 import engine
 import reporting
@@ -41,10 +41,20 @@ def dashboard(request):
         status__in=[CatalogJob.STATUS_FAILED,CatalogJob.STATUS_REVIEW]
     ).select_related("store").order_by("created_at")[:50]
     scorecard=metrics.operator_scorecard(request.user)
+    inbox=list(notices.visible_to(request.user)[:30])
     return render(request,"dashboard.html",{
         "memberships":memberships,"jobs":jobs,"operator_attention":attention,
-        "scorecard":scorecard,
+        "scorecard":scorecard,"inbox":inbox,
     })
+
+@login_required
+@require_POST
+def mark_notice_read(request,notice_id):
+    try:
+        notices.mark_read(request.user,notice_id)
+    except PermissionError:
+        raise Http404()
+    return redirect("dashboard")
 
 @login_required
 @require_http_methods(["GET","POST"])
