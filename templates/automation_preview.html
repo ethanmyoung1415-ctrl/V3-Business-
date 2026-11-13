@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block content %}
+<h1>Hypothetical automation preview</h1>
+<p><strong>Simulation only.</strong> This page has not approved, rejected, exported,
+emailed or modified any catalog data. It does not mean the customer has consented
+to automated updates.</p>
+<p>Job: {{ job.id }} — {{ job.store.name }}</p>
+{% if report.status == "blocked_by_holds" %}
+<p><strong>Automation disabled:</strong> unresolved supplier holds exist.</p>
+{% else %}
+<p>Pending and other changes examined: {{ report.total_proposed }}</p>
+<p>Stock changes potentially eligible under this fictional example policy:
+<strong>{{ report.potentially_reduced_decisions }}</strong></p>
+{% endif %}
+<p>Actions executed: <strong>{{ report.actions_executed }}</strong>.
+Approvals made: <strong>{{ report.approved }}</strong>.</p>
+<h2>Example restrictions</h2>
+<ul>
+<li>Stock only; no pricing, titles or unsupported fields</li>
+<li>Never reduces stock to zero automatically</li>
+<li>Maximum {{ policy.max_units }} units and {{ policy.max_percent }}% per update</li>
+<li>Previous stock must be at least {{ policy.min_previous_stock }}</li>
+<li>All held records block automation</li>
+</ul>
+<h2>Possible routine candidates</h2>
+<ul>{% for item in report.eligible %}
+<li>SKU {{ item.sku }}: stock {{ item.previous }} → {{ item.proposed }}</li>
+{% empty %}<li>None meet these restrictive sample criteria.</li>{% endfor %}</ul>
+<p>These are <strong>candidates for future evaluation only</strong>.
+No real store action or automatic approval will be enabled without customer policy,
+independent safety validation and production authorization.</p>
+<p><a href="{% url 'job_detail' job.id %}">Return to manual review</a></p>
+{% endblock %}
