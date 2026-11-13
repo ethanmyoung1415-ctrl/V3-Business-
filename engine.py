@@ -244,6 +244,12 @@ def export(db,job,path):
             "SELECT sku,field,new,status FROM changes WHERE job=?",(job,))]
         if any(x["status"] not in ("approved","rejected") for x in changes):
             raise ValueError("pending or invalid decisions block export")
+        # Separate audit reconciliation blocks fabricated approval status or
+        # missing exclusion evidence even when the CSV would otherwise match.
+        import audit_integrity
+        audit=audit_integrity.verify_job(db,job)
+        if not audit["passed"]:
+            raise ValueError("audit integrity failed; export blocked: "+",".join(audit["failures"]))
         rows={r["sku"]:dict(r) for r in c.execute(
             "SELECT sku,title,price,stock FROM base WHERE job=?",(job,))}
         for change in changes:
