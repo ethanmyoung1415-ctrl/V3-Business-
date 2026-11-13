@@ -17,3 +17,9 @@ mock_customers/
 *.db-wal
 *.db-shm
 *.csv.tmp
+
+# Django local demo state and private uploads
+.local_uploads/
+.local_workspaces/
+staticfiles/
+.venv/
