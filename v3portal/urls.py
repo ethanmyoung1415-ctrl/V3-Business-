@@ -9,4 +9,7 @@ urlpatterns=[
     path("",views.dashboard,name="dashboard"),
     path("stores/<uuid:store_id>/submit/",views.submit,name="submit"),
     path("jobs/<uuid:job_id>/",views.job_detail,name="job_detail"),
+    path("jobs/<uuid:job_id>/decide/",views.decision,name="decision"),
+    path("jobs/<uuid:job_id>/export/",views.export_job,name="export_job"),
+    path("jobs/<uuid:job_id>/download/",views.download,name="download"),
 ]
