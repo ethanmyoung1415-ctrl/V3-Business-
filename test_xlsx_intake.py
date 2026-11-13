@@ -20,10 +20,12 @@ def make_xlsx(path,header,rows,*,formula=False,sheets=1,extra=None,hidden_row=Fa
                 if formula and idx==2 and col==1:
                     cells.append(f'<c r="{address}"><f>1+1</f><v>2</v></c>')
                 elif isinstance(value,int):
-                    cells.append(f'<c r="{address}"{" s=\"1\"" if styled_numeric else ""}><v>{value}</v></c>')
+                    style_attr=' s="1"' if styled_numeric else ''
+                    cells.append(f'<c r="{address}"{style_attr}><v>{value}</v></c>')
                 else:
                     cells.append(f'<c r="{address}" t="inlineStr"><is><t>{value}</t></is></c>')
-            parts.append(f'<row r="{idx}"{" hidden=\"1\"" if hidden_row and idx==2 else ""}>{"".join(cells)}</row>')
+            hidden_attr=' hidden="1"' if hidden_row and idx==2 else ''
+            parts.append(f'<row r="{idx}"{hidden_attr}>{"".join(cells)}</row>')
         merged_xml='<mergeCells count="1"><mergeCell ref="A1:B1"/></mergeCells>' if merged else ''
         return (f'<worksheet xmlns="{MAIN}"><sheetData>{"".join(parts)}'
                 '</sheetData>'+merged_xml+'</worksheet>')
