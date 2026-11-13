@@ -81,6 +81,32 @@ Pricing, titles, zero-stock and all ambiguous changes remain pending.</p>
 <p>Export is blocked until every decision is resolved and there are no holds.</p>
 {% endif %}
 <p>Source uploads are private and are not served directly to browsers.</p>
+<h2>Quality issues</h2>
+<p>Use this local form to report incorrect output or unclear catalog changes.
+Do not enter passwords, personal details, payment data, or confidential real customer
+information in this synthetic demonstration.</p>
+<form method="post" action="{% url 'open_quality_issue' job.id %}">
+{% csrf_token %}
+{{ issue_form.as_p }}
+<button type="submit">Report local issue</button>
+</form>
+<ul>{% for case in cases %}
+<li>
+<strong>{{ case.status }}: {{ case.subject }}</strong> — {{ case.created_at }}
+<p>{{ case.message }}</p>
+{% if case.status == "resolved" %}
+<p>Operator resolution: {{ case.resolution }}</p>
+{% elif can_review %}
+<form method="post" action="{% url 'resolve_quality_issue' case.id %}">
+{% csrf_token %}
+<label>Resolution notes <textarea name="resolution" rows="3"
+maxlength="500" minlength="12" required></textarea></label>
+<button type="submit">Record resolution</button>
+</form>
+{% endif %}
+</li>
+{% empty %}<li>No issues reported.</li>{% endfor %}
+</ul>
 <h2>Audit history</h2><ul>{% for event in events %}
 <li>{{ event.created_at }} — {{ event.kind }}</li>
 {% empty %}<li>No events yet.</li>{% endfor %}</ul>
