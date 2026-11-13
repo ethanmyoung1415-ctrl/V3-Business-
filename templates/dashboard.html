@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block content %}
+<h1>My stores</h1><ul>{% for membership in memberships %}
+<li>{{ membership.store.name }} — {{ membership.role }}
+<a href="{% url 'submit' membership.store.id %}">Submit test catalog</a></li>
+{% empty %}<li>No stores assigned.</li>{% endfor %}</ul>
+<h2>Recent submissions</h2><ul>{% for job in jobs %}
+<li><a href="{% url 'job_detail' job.id %}">{{ job.id }}</a> — {{ job.store.name }} — {{ job.status }}</li>
+{% empty %}<li>No submissions.</li>{% endfor %}</ul>
+<p>Submissions are stored privately but are not automatically processed by the portal yet.</p>
+{% endblock %}
