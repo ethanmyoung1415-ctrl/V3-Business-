@@ -108,7 +108,21 @@ def prepare_export(job,user):
     if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
         raise ValueError("job cannot be exported")
     path=output_path(job)
-    result=engine.export(backend_db(job.store_id),str(job.engine_job_id),path)
+    database=backend_db(job.store_id)
+    if path.exists():
+        # A crash may have occurred after a successful engine export but
+        # before the portal status was committed. Recover only if the engine
+        # recorded the export AND an independent reconciliation still passes.
+        review_state=engine.review(database,str(job.engine_job_id))["job"]["status"]
+        if review_state!="exported":
+            raise ValueError("existing export without committed engine audit")
+        checked=qa.verify(database,str(job.engine_job_id),path)
+        if not checked["passed"]:
+            raise ValueError("existing export failed independent verification")
+        result={"sha256":checked["sha256"],"path":str(path),
+                "rows":checked["expected_rows"],"recovered":True}
+    else:
+        result=engine.export(database,str(job.engine_job_id),path)
     job.export_sha256=result["sha256"]
     job.status=CatalogJob.STATUS_READY
     job.save(update_fields=["export_sha256","status","updated_at"])
