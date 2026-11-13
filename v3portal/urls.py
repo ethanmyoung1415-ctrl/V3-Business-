@@ -12,5 +12,6 @@ urlpatterns=[
     path("jobs/<uuid:job_id>/decide/",views.decision,name="decision"),
     path("jobs/<uuid:job_id>/export/",views.export_job,name="export_job"),
     path("jobs/<uuid:job_id>/batch-approve/",views.batch_approve,name="batch_approve"),
+    path("jobs/<uuid:job_id>/exclude-hold/",views.exclude_hold,name="exclude_hold"),
     path("jobs/<uuid:job_id>/download/",views.download,name="download"),
 ]
