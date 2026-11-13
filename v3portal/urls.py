@@ -9,6 +9,7 @@ urlpatterns=[
     path("",views.dashboard,name="dashboard"),
     path("notices/<uuid:notice_id>/read/",views.mark_notice_read,name="mark_notice_read"),
     path("stores/<uuid:store_id>/submit/",views.submit,name="submit"),
+    path("stores/<uuid:store_id>/supplier-profiles/",views.configure_supplier,name="configure_supplier"),
     path("jobs/<uuid:job_id>/",views.job_detail,name="job_detail"),
     path("jobs/<uuid:job_id>/decide/",views.decision,name="decision"),
     path("jobs/<uuid:job_id>/export/",views.export_job,name="export_job"),
