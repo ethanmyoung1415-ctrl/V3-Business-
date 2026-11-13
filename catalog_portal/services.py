@@ -1,0 +1,106 @@
+"""Portal-to-engine bridge for synthetic, locally hosted development only.
+
+Intake remains private and tenant-specific. No billing, live-store write,
+customer notification or autonomous approval is implemented.
+"""
+import sqlite3
+import uuid
+from pathlib import Path
+from django.conf import settings
+from django.db import transaction
+import engine
+import intake
+import qa
+from .models import CatalogJob,Membership
+
+def backend_db(store_id):
+    identifier=str(uuid.UUID(str(store_id)))
+    root=Path(getattr(settings,"V3_WORKSPACE_ROOT",settings.BASE_DIR/".local_workspaces"))
+    root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if root.is_symlink():raise ValueError("linked workspace root denied")
+    directory=root/identifier
+    if directory.is_symlink():raise ValueError("linked tenant directory denied")
+    directory.mkdir(parents=True,exist_ok=True,mode=0o700)
+    return directory/"engine.sqlite3"
+
+def require_operator(user,job):
+    if not user.is_authenticated or not Membership.objects.filter(
+            user=user,store_id=job.store_id,role=Membership.ROLE_OPERATOR).exists():
+        raise PermissionError("operator permission required")
+
+def process_received(job_id):
+    """Claim exactly one pending portal upload; crash remains fail-closed."""
+    with transaction.atomic():
+        updated=CatalogJob.objects.filter(
+            pk=job_id,status=CatalogJob.STATUS_RECEIVED).update(
+                status=CatalogJob.STATUS_PROCESSING)
+        if updated!=1:return {"processed":False,"reason":"not_received"}
+    job=CatalogJob.objects.get(pk=job_id)
+    try:
+        database=backend_db(job.store_id)
+        snapshots=intake.stage_pair(job.baseline.path,job.supplier_update.path,database)
+        result=engine.ingest(database,snapshots[0][0],snapshots[1][0])
+        job.engine_job_id=uuid.UUID(result["job_id"])
+        job.status=CatalogJob.STATUS_REVIEW
+        job.error_code=""
+        job.save(update_fields=["engine_job_id","status","error_code","updated_at"])
+        return {"processed":True,"status":"review","job_id":str(job.id),
+                "engine_job_id":result["job_id"],
+                "holds":len(result["holds"]),"changes":result["changes"]}
+    except Exception:
+        # Do not show file contents or underlying exception details to customers.
+        job.status=CatalogJob.STATUS_FAILED
+        job.error_code="processing_error"
+        job.save(update_fields=["status","error_code","updated_at"])
+        raise
+
+def process_received_batch(max_jobs=10):
+    if not 1<=max_jobs<=100:raise ValueError("invalid batch size")
+    ids=CatalogJob.objects.filter(status=CatalogJob.STATUS_RECEIVED).order_by(
+        "created_at").values_list("id",flat=True)[:max_jobs]
+    results=[]
+    for job_id in ids:
+        try:results.append(process_received(job_id))
+        except Exception:results.append({"job_id":str(job_id),"processed":False,"reason":"processing_error"})
+    return results
+
+def review(job,user):
+    require_operator(user,job)
+    if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
+        raise ValueError("job not reviewable")
+    return engine.review(backend_db(job.store_id),str(job.engine_job_id))
+
+def decide(job,user,change_id,decision,reason):
+    detail=review(job,user)
+    if change_id not in {c["id"] for c in detail["changes"]}:
+        raise ValueError("change belongs to another job")
+    if decision not in ("approved","rejected") or not reason.strip():
+        raise ValueError("invalid decision")
+    return engine.decide(backend_db(job.store_id),change_id,decision,
+                         f"web-operator:{user.pk}",reason.strip())
+
+def output_path(job):
+    identifier=str(uuid.UUID(str(job.id)))
+    directory=backend_db(job.store_id).parent/"exports"
+    directory.mkdir(exist_ok=True,mode=0o700)
+    return directory/(identifier+".csv")
+
+def prepare_export(job,user):
+    require_operator(user,job)
+    if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
+        raise ValueError("job cannot be exported")
+    path=output_path(job)
+    result=engine.export(backend_db(job.store_id),str(job.engine_job_id),path)
+    job.export_sha256=result["sha256"]
+    job.status=CatalogJob.STATUS_READY
+    job.save(update_fields=["export_sha256","status","updated_at"])
+    return result
+
+def verified_download_path(job):
+    if job.status!=CatalogJob.STATUS_READY or not job.engine_job_id:
+        raise ValueError("export not ready")
+    path=output_path(job)
+    check=qa.verify(backend_db(job.store_id),str(job.engine_job_id),path)
+    if not check["passed"] or check["sha256"]!=job.export_sha256:
+        raise ValueError("export failed integrity verification")
+    return path
