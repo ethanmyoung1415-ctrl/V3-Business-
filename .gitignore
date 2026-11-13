@@ -23,3 +23,5 @@ mock_customers/
 .local_workspaces/
 staticfiles/
 .venv/
+
+.v3_paused
