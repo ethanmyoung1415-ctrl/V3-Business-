@@ -107,3 +107,22 @@ class JobForm(forms.ModelForm):
             except forms.ValidationError as exc:
                 self.add_error("supplier_update",exc)
         return data
+
+class SupplierProfileCreateForm(forms.Form):
+    name=forms.CharField(max_length=120,
+        help_text="Human-readable supplier profile name within this store.")
+    mapping_json=forms.CharField(
+        label="Exact source column mapping (JSON)",
+        max_length=2000,
+        widget=forms.Textarea(attrs={"rows":5,"cols":45}),
+        help_text='Example: {"sku":"Item Code","stock":"Qty Available"}. No guessing.'
+    )
+    def clean_mapping_json(self):
+        import json
+        raw=self.cleaned_data["mapping_json"]
+        try:
+            parsed=json.loads(raw)
+            return mapper.validate_mapping(parsed)
+        except (json.JSONDecodeError,ValueError) as exc:
+            raise forms.ValidationError("Invalid exact field map: %(error)s",
+                params={"error":str(exc)})
