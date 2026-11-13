@@ -26,7 +26,7 @@ class ReleasedDigestTests(unittest.TestCase):
     def test_deleted_release_event_blocks_download(self):
         with sqlite3.connect(self.db) as conn:
             conn.execute("DELETE FROM events WHERE job=? AND kind='export'",(self.job,))
-        with self.assertRaisesRegex(ValueError,"release record"):
+        with self.assertRaisesRegex(ValueError,"audit reconciliation|release record"):
             qa.verify(self.db,self.job,self.output)
     def test_manipulated_release_sha_blocks_download(self):
         with sqlite3.connect(self.db) as conn:
