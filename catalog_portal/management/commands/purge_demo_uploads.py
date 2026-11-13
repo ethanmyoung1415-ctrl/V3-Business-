@@ -42,6 +42,6 @@ class Command(BaseCommand):
         for job,path,field in files:
             path.unlink()
             # Keep the file name for audit, but mark it inaccessible.
-            CatalogEvent.objects.create(job=job,kind="failed",
+            CatalogEvent.objects.create(job=job,kind="source_purged",
                                         detail="demo_source_removed")
         self.stdout.write(f"Deleted {len(files)} local demo source files.")
