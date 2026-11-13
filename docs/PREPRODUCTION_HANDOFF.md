@@ -1,46 +1,46 @@
-# V3 Preproduction Engineering Handoff
+# V3 engineering handoff — preproduction
 
-**Status:** local-only preproduction demonstration. **Not approved for real customer data, payments, deployment, or live-store changes.**
+**Release state: LOCAL SYNTHETIC DEMONSTRATION ONLY.** The software now includes substantially more than the original CSV checker, but is not a publicly hosted, externally connected, or income-generating service.
 
-## Engineering completed in the latest development cycle
-- Upload validation now rejects unsafe formulas, malformed/invalid records, duplicate baseline SKUs and invalid numeric values *before* saving a job.
-- Portal configuration explicitly refuses non-local deployment; HTTP access is restricted to loopback, with local-only login throttling.
-- Structured job audit events record submissions, processing, failure, decisions, exports, verified downloads and demo-upload retention.
-- Operator dashboard shows authorized cross-store exception priorities and real job-volume/status KPIs, with revenue intentionally unset.
-- Local retention cleanup defaults to dry-run and requires explicit confirmation; only old terminal synthetic source files are eligible.
-- Stalled processing jobs are marked failed with audit events and require investigation rather than blind retries.
-- Authorized operators can explicitly approve **only** small nonzero stock changes in a batch, limited to at most five units and ten percent. Pricing, titles, zero stock, holds and large updates remain separately reviewed.
-- A completed engine export can be reconciled after an interrupted portal status update, but only after the existing file passes independent QA and the engine audit confirms export.
-- Added synthetic workload coverage at 5,000 SKUs, more cross-tenant and review tests, and prelaunch website assets that do not collect information.
-- Created a controlled-pilot protocol and adult-account handoff document.
+## Implemented workflows
 
-## Verification
-Two GitHub Actions suites run after changes:
-1. Standard-library catalog/worker/QA tests on Python 3.10 and 3.13.
-2. Django portal tests, tenant isolation, permission/CSRF tests, migrations and security checks on Python 3.10 and 3.13.
+**Merchant intake:** A synthetic store customer signs into a local Django account and submits a baseline plus supplier CSV. The system validates schema/limits, hashes original uploads and stages immutable local copies. Alternatively, a merchant may select an exact store-scoped supplier header profile. That mapping is frozen on the job.
 
-Always verify the latest commit at https://github.com/ethanmyoung1415-ctrl/V3-Business-/actions . Green unit tests validate their defined cases; they are not penetration testing, SOC 2 certification or proof that the product is safe to host.
+**Managed analysis:** A local worker uses a stable job ID, compares catalogs, holds ambiguous or unsafe data and stores deterministic evidence/risk advice. An optional model adapter is coded but disabled without explicit local-only flags, provider credentials and permitted synthetic scope.
 
-## What can be demonstrated without additional accounts
-Use [PORTAL_DEMO.md](PORTAL_DEMO.md) with fictional CSV data. A simulated customer logs in, submits files, local processing sends the job to review, a scoped operator resolves exceptions, and the customer downloads only their own independently verified CSV.
+**Operator decisions:** Role-limited operators see pending jobs, risk and recommendations. They explicitly approve/reject changes with reasons, optionally batch-approve only small nonzero inventory adjustments, and may explicitly exclude malformed source records **without applying those values**. Audit events record actions.
 
-## Actual blockers before commercial launch
-1. **Approval of commercial infrastructure and accounts:** hosting, domain, payment processor, any external AI/provider APIs, and budget. Some account contracts require a legally authorized adult.
-2. **Real production environment:** server/database/object storage with encryption, validated tenant isolation, durable queue, secure secrets, monitoring, recovery and deployment pipeline.
-3. **Independent technical/security review:** current prototype uses local SQLite and intentionally cannot be exposed publicly.
-4. **Customer/legal authorization:** appropriate business signatory, customer contracts, secure data-transfer conditions, privacy/retention terms and compliance review.
-5. **Real pilot proof:** customer data only with permission and after infrastructure clearance, then measure accuracy, false alarms, labor, margins, retention and willingness to pay.
+**Customer delivery:** Only after all holds and decisions are resolved does an independent verifier release a CSV. An accompanying JSON report shows change decisions, excluded rows, source SHA hashes and verification status. Tenant members may download only their own verified files.
 
-## Explicitly NOT yet present
-A running cloud product, real AI model integration, payment/subscription processing, live Shopify connections, self-service public onboarding, verified uptime or revenue. These are not hidden behind a button and must not be represented as finished.
+**Recurring service:** A store customer may assert they imported that verified result externally. This requires their explicit confirmation; V3 cannot see a real storefront. The *latest confirmed* version may be reused as the next baseline; unconfirmed or tampered versions are blocked.
 
-## Recommended next release sequence
-1. Parent/authorized operator agrees to commercial account and budget approach.
-2. Security reviewer selects/approves an architecture with tenant isolation, encryption and retention.
-3. Deploy a staging environment on approved accounts using fictional data.
-4. Integrate read-only AI assistance behind enforceable deterministic safety rules and evaluate its accuracy.
-5. Test hosted failure/recovery, threat scenarios and customer onboarding.
-6. Conduct the controlled pilots defined in [PILOT_PLAN.md](PILOT_PLAN.md).
-7. Establish contracts/billing only after successful validation.
+**Reliability:** Stable job IDs prevent duplicate processing after an interrupted portal update; reasoned retries only for recoverable failures. In-app notices, stale-job review, local emergency stop, synthetic archive/restore and minimal retention controls are present.
 
-**Decision rule:** no production deployment or real customer data until the required owners explicitly approve the release and evidence is recorded.
+**Confidence:** GitHub Actions runs standard-library engine tests, Django portal tests and a repository guard. A green run confirms only tested scenarios; the latest run is at [GitHub Actions](https://github.com/ethanmyoung1415-ctrl/V3-Business-/actions).
+
+## Demo and review resources
+- [Portal walkthrough](PORTAL_DEMO.md)
+- [Threat model](THREAT_MODEL.md)
+- [Hosting design proposal](HOSTING_PLAN.md)
+- [AI model evaluation plan](AI_EVALUATION_PLAN.md)
+- [Operator playbook](OPERATOR_PLAYBOOK.md)
+- [Proposed controlled pilot](PILOT_PLAN.md)
+- [Adult/business account briefing](ADULT_HANDOFF.md)
+- [Commercial release checklist](PRODUCTION_GATE.md)
+
+## Not yet operational
+- Public web hosting, domain, TLS ingress, production object storage/PostgreSQL and queue
+- Commercial account provisioning, independent professional security audit and incident/backup operations
+- Real external AI model invocations, approved data-transfer terms or provider usage budget
+- Shopify/other store connectors, actual store data reads/writes or automatic remote import confirmation
+- Customer enrollment, email delivery, service agreements, billing, payments, taxes or bookkeeping
+- Real customer interviews, paid pilots, contractual renewals, measured margins and validated pricing
+
+## Dependencies that genuinely require help
+1. **User/parent or legally appropriate signatory:** authorizing provider, hosting, financial and customer-contract accounts and budget; professional legal/tax arrangements.
+2. **Technical reviewer:** independent security and deployment architecture signoff before any real customer data.
+3. **Prospective customers:** permissioned examples, real-world workflow confirmation, pilot acceptance and contract approval.
+
+Further offline coding and documentation are possible; this document does not claim that every conceivable feature is implemented. But commercial progress is no longer just a matter of writing more code; the outstanding release gates require external parties and authorization.
+
+**Safety rule:** Do not bypass tests, expose localhost to the public internet, add provider keys to GitHub, process private customer files, or accept money before approval.
