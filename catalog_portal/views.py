@@ -3,7 +3,7 @@ from django.http import Http404,FileResponse
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
 from .forms import JobForm
-from .models import Store,Membership,CatalogJob
+from .models import Store,Membership,CatalogJob,CatalogEvent
 from . import services
 import triage
 
@@ -36,6 +36,8 @@ def submit(request,store_id):
         job.submitted_by=request.user
         job.status=CatalogJob.STATUS_RECEIVED
         job.save()
+        CatalogEvent.objects.create(job=job,actor=request.user,kind="submitted",
+                                    detail="CSV files accepted")
         return redirect("job_detail",job_id=job.id)
     return render(request,"submit.html",{"store":store,"form":form})
 
@@ -77,6 +79,8 @@ def download(request,job_id):
     job=accessible_job(request.user,job_id)
     try:path=services.verified_download_path(job)
     except (ValueError,OSError):raise Http404()
+    CatalogEvent.objects.create(job=job,actor=request.user,kind="downloaded",
+                                detail="verified_file_access")
     response=FileResponse(path.open("rb"),as_attachment=True,filename=f"{job.id}.csv")
     response["Cache-Control"]="no-store"
     response["X-Content-Type-Options"]="nosniff"
