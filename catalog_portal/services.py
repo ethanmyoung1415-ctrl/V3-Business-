@@ -13,7 +13,7 @@ import intake
 import mapping as mapper
 import qa
 import advice_jobs
-from .models import CatalogJob,Membership,CatalogEvent
+from .models import CatalogJob,Membership,CatalogEvent,CatalogConfirmation
 from . import notices
 
 def backend_db(store_id):
@@ -30,6 +30,38 @@ def require_operator(user,job):
     if not user.is_authenticated or not Membership.objects.filter(
             user=user,store_id=job.store_id,role=Membership.ROLE_OPERATOR).exists():
         raise PermissionError("operator permission required")
+
+def latest_confirmed(store):
+    return CatalogConfirmation.objects.filter(
+        store=store,job__status=CatalogJob.STATUS_READY
+    ).select_related("job").order_by("-confirmed_at","-pk").first()
+
+def confirm_import(job,user):
+    """A CUSTOMER asserts they imported a verified CSV in their own store.
+
+    No store connection or import is performed by V3.
+    """
+    if not getattr(user,"is_authenticated",False) or not Membership.objects.filter(
+            user=user,store_id=job.store_id,role=Membership.ROLE_CUSTOMER).exists():
+        raise PermissionError("a store customer must confirm an import")
+    job.refresh_from_db()
+    if job.status!=CatalogJob.STATUS_READY:
+        raise ValueError("only released verified files may be confirmed")
+    path=verified_download_path(job)
+    with transaction.atomic():
+        previous=CatalogConfirmation.objects.filter(job=job).first()
+        if previous:
+            return previous
+        latest=latest_confirmed(job.store)
+        if latest and job.baseline_source_job_id!=latest.job_id:
+            raise ValueError("job was not based on latest confirmed imported version")
+        record=CatalogConfirmation.objects.create(
+            store=job.store,job=job,confirmed_by=user,
+            export_sha256=job.export_sha256)
+        CatalogEvent.objects.create(
+            job=job,actor=user,kind="import_confirmed",
+            detail="customer_asserts_external_import_completed")
+    return record
 
 def process_received(job_id):
     """Claim exactly one pending portal upload; crash remains fail-closed."""
