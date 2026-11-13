@@ -88,6 +88,27 @@ See [XLSX Intake](docs/XLSX_INTAKE.md). This is **not** support for arbitrary
 Excel files, and real customer workbooks remain prohibited until security
 review and controlled pilots.
 
+## Reproducible preproduction rehearsal
+
+V3 can now be built in a **non-root, network-isolated test container** and
+checked without cloud accounts. The GitHub workflow
+[Synthetic container rehearsal](.github/workflows/container-smoke.yml) builds
+`deploy/Dockerfile.test` and runs the Django tests plus a full fictional
+recovery drill. No image is published, no port is exposed and no public server
+starts.
+
+The synthetic-only recovery tools now include a combined archive of the local
+portal database, original uploads, and per-store workspaces/exports, with
+integrity-checked restoration to a new location. This archive is **not encrypted**
+and must never be used with real customer data.
+
+Local queue-admission limits help prevent accidental submission floods. They
+are explicitly not sufficient as production-wide distributed rate limits.
+
+See [Synthetic Staging Rehearsal](docs/SYNTHETIC_STAGING.md) for exact
+commands and limitations. The existing public-deployment safety gate remains
+enabled.
+
 ## Critical remaining commercial work
 See [Production Gate](docs/PRODUCTION_GATE.md), [Threat Model](docs/THREAT_MODEL.md), [Hosting Plan](docs/HOSTING_PLAN.md), [AI Evaluation Plan](docs/AI_EVALUATION_PLAN.md) and [Preproduction Handoff](docs/PREPRODUCTION_HANDOFF.md).
 
