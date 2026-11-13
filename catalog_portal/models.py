@@ -7,7 +7,10 @@ from django.db import models
 def private_upload_path(instance,filename):
     # Ignore the user-controlled name entirely.
     kind="baseline" if "baseline" in str(filename).lower() else "input"
-    return f"private/{instance.store_id}/{instance.id}/{kind}-{uuid.uuid4()}.csv"
+    # Preserve only the approved extension; ignore all user-controlled path
+    # components and choose a fresh random object name.
+    extension=".xlsx" if str(filename).lower().endswith(".xlsx") else ".csv"
+    return f"private/{instance.store_id}/{instance.id}/{kind}-{uuid.uuid4()}{extension}"
 
 class Store(models.Model):
     id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
