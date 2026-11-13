@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block content %}
+<h1>Local demonstration invitation</h1>
+<p><strong>Not a public signup.</strong> This development-only form accepts
+a single-use code issued directly by an authorized local operator.
+Do not use any real customer information.</p>
+<form method="post" autocomplete="off">
+{% csrf_token %}
+{{ form.as_p }}
+<button type="submit">Redeem fictional customer invitation</button>
+</form>
+<p>Codes are not sent via email or connected to external services.
+Accounts created here only work on this local demonstration.</p>
+<p><a href="{% url 'login' %}">Return to login</a></p>
+{% endblock %}
