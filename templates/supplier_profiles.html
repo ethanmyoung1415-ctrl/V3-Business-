@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block content %}
+<h1>Supplier profiles for {{ store.name }}</h1>
+<p>Only authorized operators can create a field mapping. Use the exact supplier
+column names. Once a mapping is selected on a job, V3 freezes that mapping for
+the job, even if the profile changes later.</p>
+<h2>Existing profiles</h2><ul>
+{% for profile in profiles %}
+<li>{{ profile.name }} — {{ profile.active|yesno:"active,inactive" }}
+<code>{{ profile.mapping }}</code></li>
+{% empty %}<li>No mappings configured. Standard V3 CSVs work without one.</li>
+{% endfor %}</ul>
+<h2>Create mapping</h2>
+<form method="post">{% csrf_token %}
+{{ form.as_p }}
+<button type="submit">Create exact mapping</button>
+</form>
+<p>No automated guessing, supplier contact, or live-store changes occur here.</p>
+<a href="{% url 'dashboard' %}">Back to dashboard</a>
+{% endblock %}
