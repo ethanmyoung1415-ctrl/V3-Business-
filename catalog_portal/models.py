@@ -48,3 +48,19 @@ class CatalogJob(models.Model):
     export_sha256=models.CharField(max_length=64,blank=True,editable=False)
     class Meta:
         indexes=[models.Index(fields=("store","created_at"),name="v3job_store_created_idx")]
+
+class CatalogEvent(models.Model):
+    """Metadata-only event trail; never put supplier CSV content in details."""
+    TYPES=[
+        ("submitted","Submitted"),("processed","Processed"),
+        ("failed","Failed"),("approved","Approved"),("rejected","Rejected"),
+        ("exported","Exported"),("downloaded","Downloaded"),
+    ]
+    job=models.ForeignKey(CatalogJob,on_delete=models.CASCADE,related_name="portal_events")
+    actor=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,
+                            null=True,blank=True)
+    kind=models.CharField(max_length=20,choices=TYPES)
+    created_at=models.DateTimeField(auto_now_add=True)
+    detail=models.CharField(max_length=180,blank=True)
+    class Meta:
+        indexes=[models.Index(fields=("job","created_at"),name="v3event_job_time_idx")]
