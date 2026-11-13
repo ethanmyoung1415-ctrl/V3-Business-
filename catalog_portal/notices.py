@@ -12,6 +12,10 @@ NOTICE_TYPES={
 def create(job,kind,audience):
     if (kind,audience) not in NOTICE_TYPES:
         raise ValueError("unsupported notice type/audience")
+    required_status={"needs_review":"review","job_failed":"failed",
+                     "export_ready":"ready"}[kind]
+    if job.status!=required_status:
+        raise ValueError("notice must match a confirmed job state")
     key=f"{job.pk}:{kind}:{audience}"
     notice,_=PortalNotice.objects.get_or_create(
         dedupe_key=key,defaults={
