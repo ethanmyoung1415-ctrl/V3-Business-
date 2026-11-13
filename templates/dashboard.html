@@ -23,7 +23,7 @@
 </ul></section>
 {% endif %}<ul>{% for membership in memberships %}
 <li>{{ membership.store.name }} — {{ membership.role }}
-<a href="{% url 'submit' membership.store.id %}">Submit test catalog</a></li>
+<a href="{% url 'submit' membership.store.id %}">Submit test catalog</a> {% if membership.role == "operator" %}<a href="{% url 'configure_supplier' membership.store.id %}">Configure supplier mappings</a>{% endif %}</li>
 {% empty %}<li>No stores assigned.</li>{% endfor %}</ul>
 {% if operator_attention %}
 <h2>Needs your attention</h2><ul>{% for job in operator_attention %}
