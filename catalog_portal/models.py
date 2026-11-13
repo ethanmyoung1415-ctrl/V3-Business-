@@ -44,5 +44,7 @@ class CatalogJob(models.Model):
     created_at=models.DateTimeField(auto_now_add=True)
     updated_at=models.DateTimeField(auto_now=True)
     error_code=models.CharField(max_length=60,blank=True)
+    engine_job_id=models.UUIDField(null=True,blank=True,editable=False)
+    export_sha256=models.CharField(max_length=64,blank=True,editable=False)
     class Meta:
         indexes=[models.Index(fields=("store","created_at"),name="v3job_store_created_idx")]
