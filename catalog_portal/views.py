@@ -1,5 +1,5 @@
 from django.contrib.auth.decorators import login_required
-from django.http import Http404,FileResponse
+from django.http import Http404,FileResponse,HttpResponse
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
 from .forms import JobForm
@@ -7,6 +7,7 @@ from .models import Store,Membership,CatalogJob,CatalogEvent
 from . import services,metrics
 import triage
 import engine
+import reporting
 
 def accessible_store(user,store_id):
     store=get_object_or_404(Store,pk=store_id,active=True)
@@ -111,6 +112,22 @@ def export_job(request,job_id):
     try:services.prepare_export(job,request.user)
     except (PermissionError,ValueError):raise Http404()
     return redirect("job_detail",job_id=job.id)
+
+@login_required
+def download_report(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        path=services.verified_download_path(job)
+        document=reporting.generate(services.backend_db(job.store_id),
+                                    str(job.engine_job_id),path)
+    except (ValueError,OSError):
+        raise Http404()
+    response=HttpResponse(reporting.serialize(document),
+                          content_type="application/json; charset=utf-8")
+    response["Content-Disposition"]=f'attachment; filename="{job.id}-change-report.json"'
+    response["Cache-Control"]="no-store"
+    response["X-Content-Type-Options"]="nosniff"
+    return response
 
 @login_required
 def download(request,job_id):
