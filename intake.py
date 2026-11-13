@@ -13,19 +13,19 @@ from pathlib import Path
 
 MAX_BYTES=15_000_000
 
-def _source(path):
+def _source(path,allowed_exts=(".csv",)):
     path=Path(path).absolute()
     entry=os.lstat(path)
     if not stat.S_ISREG(entry.st_mode):
         raise ValueError("only regular CSV files are allowed; links are prohibited")
-    if path.suffix.lower()!=".csv":
-        raise ValueError("only CSV files are supported")
+    if path.suffix.lower() not in allowed_exts:
+        raise ValueError("unsupported file format for this intake")
     if entry.st_size>MAX_BYTES:
         raise ValueError("source file exceeds intake size limit")
     return path,entry
 
-def stage_csv(path,store):
-    source,initial=_source(path)
+def stage_csv(path,store,allowed_exts=(".csv",)):
+    source,initial=_source(path,allowed_exts)
     store=Path(store)
     store.mkdir(parents=True,exist_ok=True,mode=0o700)
     # Owner permissions are best effort on Windows; real production access
@@ -35,7 +35,7 @@ def stage_csv(path,store):
     if not store.is_dir():
         raise ValueError("staging directory is invalid")
     file_descriptor,tmp=tempfile.mkstemp(prefix=".incoming-",dir=store)
-    target=store/(str(uuid.uuid4())+".csv")
+    target=store/(str(uuid.uuid4())+source.suffix.lower())
     src_fd=None
     try:
         os.fchmod(file_descriptor,0o600) if hasattr(os,"fchmod") else None
@@ -73,12 +73,13 @@ def stage_csv(path,store):
         if file_descriptor is not None:os.close(file_descriptor)
         if src_fd is not None:os.close(src_fd)
 
-def stage_pair(baseline,update,db):
+def stage_pair(baseline,update,db,allow_xlsx=False):
     store=Path(db).resolve().parent/".v3_staged"
     outputs=[]
     try:
+        allowed=(".csv",".xlsx") if allow_xlsx else (".csv",)
         for item in (baseline,update):
-            outputs.append(stage_csv(item,store))
+            outputs.append(stage_csv(item,store,allowed_exts=allowed))
         return outputs
     except BaseException:
         for path,_ in outputs:
