@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Store,Membership,CatalogJob
+from .models import Store,Membership,CatalogJob,SupplierProfile
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
     list_display=("id","name","active")
@@ -14,3 +14,9 @@ class JobAdmin(admin.ModelAdmin):
     list_filter=("status",)
     readonly_fields=("baseline","supplier_update","submitted_by","store")
     def has_add_permission(self,request):return False
+
+@admin.register(SupplierProfile)
+class SupplierProfileAdmin(admin.ModelAdmin):
+    list_display=("name","store","active")
+    list_filter=("store","active")
+    search_fields=("name",)
