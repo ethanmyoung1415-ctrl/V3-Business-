@@ -111,6 +111,8 @@ class JobForm(forms.ModelForm):
         super().__init__(*args,**kwargs)
         self.store=store
         self.fields["baseline"].required=False
+        self.fields["baseline"].widget.attrs["accept"]=".csv,.xlsx"
+        self.fields["supplier_update"].widget.attrs["accept"]=".csv,.xlsx"
         self.fields["supplier_profile"].queryset=SupplierProfile.objects.filter(
             store=store,active=True)
     def clean_baseline(self):
