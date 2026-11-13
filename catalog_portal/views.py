@@ -9,6 +9,7 @@ from .forms import JobForm,SupplierProfileCreateForm,CustomerIssueForm,CustomerR
 from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile,CustomerIssue
 from . import services,metrics,notices,issues,emergency
 import triage
+import autonomy_simulator
 import engine
 import reporting
 import advice_jobs
@@ -149,6 +150,25 @@ def job_detail(request,job_id):
                   "can_review":can_review,"events":events,
                   "can_confirm":can_confirm,"is_confirmed":is_confirmed,
                   "cases":cases,"issue_form":CustomerIssueForm()})
+
+@login_required
+def automation_preview(request,job_id):
+    """Read-only, synthetic operator preview: no approvals and no store writes."""
+    if request.method!="GET":
+        raise Http404()
+    job=accessible_job(request.user,job_id)
+    try:
+        services.require_operator(request.user,job)
+        if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
+            raise ValueError("job not reviewable")
+        policy=dict(autonomy_simulator.DEFAULT)
+        policy["authorized_simulation"]=True
+        result=autonomy_simulator.inspect(
+            services.backend_db(job.store_id),str(job.engine_job_id),policy)
+    except (PermissionError,ValueError):
+        raise Http404()
+    return render(request,"automation_preview.html",
+                  {"job":job,"report":result,"policy":policy})
 
 @login_required
 @require_POST
