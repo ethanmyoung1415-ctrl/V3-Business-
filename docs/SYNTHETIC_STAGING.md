@@ -52,3 +52,20 @@ Authorized account owner, documented budget, hosting region/provider,
 encrypted database and object store, secure identity management, worker
 permissions, monitoring, approved data-retention and legal obligations.
 An independent technical review remains mandatory.
+
+## Ephemeral PostgreSQL compatibility
+
+The additional workflow `Synthetic PostgreSQL compatibility` runs the
+Django portal's migration checks and full synthetic test suite against an
+ephemeral PostgreSQL 16 instance on the GitHub Actions runner. The credentials
+in the workflow are **fictional test-only values**, not production secrets.
+
+To use this path locally you would need a disposable PostgreSQL instance,
+the packages in `requirements-postgres-test.txt` and the environment flags
+`V3_LOCAL_DEV=1`, `V3_TEST_POSTGRES=1` plus the
+`V3_TEST_PG_DATABASE/USER/PASSWORD/HOST/PORT` test connection details.
+
+This only exercises the **Django portal database**. The per-tenant catalog
+engine still stores local SQLite files. It does not establish full
+production multi-worker, storage or permission compatibility. The
+application's public deployment restriction remains active.
