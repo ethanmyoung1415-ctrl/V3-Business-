@@ -109,6 +109,46 @@ def decide(db,change,decision,actor,reason):
         c.execute("UPDATE changes SET status=? WHERE id=?",(decision,change))
         log(c,row[0],"decision",{"change":change,"decision":decision,"actor":actor,"reason":reason})
     return {"change":change,"decision":decision}
+def hold_token(hold):
+    """Stable identifier based on hold details, not mutable list position."""
+    payload=json.dumps(hold,sort_keys=True,ensure_ascii=True,separators=(",",":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+def listed_holds(db,job):
+    data=review(db,job)
+    return [{**hold,"token":hold_token(hold)} for hold in data["holds"]]
+
+def exclude_hold(db,job,token,actor,reason):
+    """Explicitly exclude one malformed supplier record from this job.
+
+    This NEVER applies the held value. It only permits unaffected approved
+    catalog fields to export; the baseline remains untouched for that record.
+    """
+    if (not isinstance(actor,str) or not actor.strip()
+            or not isinstance(reason,str) or len(reason.strip())<12):
+        raise ValueError("actor and exclusion justification of at least 12 characters required")
+    if not isinstance(token,str) or len(token)!=64:
+        raise ValueError("invalid hold token")
+    setup(db)
+    with sqlite3.connect(db,timeout=30) as c:
+        c.row_factory=sqlite3.Row
+        c.execute("BEGIN IMMEDIATE")
+        row=c.execute("SELECT status,holds FROM jobs WHERE id=?",(job,)).fetchone()
+        if not row or row["status"]!="review":
+            raise ValueError("job not in review")
+        holds=json.loads(row["holds"])
+        selected=[i for i,hold in enumerate(holds) if hold_token(hold)==token]
+        if len(selected)!=1:
+            raise ValueError("hold not uniquely present")
+        hold=holds.pop(selected[0])
+        c.execute("UPDATE jobs SET holds=? WHERE id=?",(
+            json.dumps(holds,sort_keys=True),job))
+        log(c,job,"hold_excluded",{
+            "token":token,"original_hold":hold,
+            "actor":actor.strip(),"reason":reason.strip(),
+            "policy":"held_source_data_never_applied"})
+    return {"job_id":job,"excluded":token,"remaining_holds":len(holds)}
+
 def eligible_low_risk_stock(change):
     """Conservative eligibility for a human-reviewed batch decision.
 
