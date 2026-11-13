@@ -35,6 +35,11 @@ Pricing, titles, zero-stock and all ambiguous changes remain pending.</p>
 <p><strong>{{ change.sku }}</strong> · {{ change.field }}</p>
 <p>Previous: {{ change.old }} → Proposed: {{ change.new }}</p>
 <p>Risk: {{ change.advice.risk }} · {{ change.advice.explanation }}</p>
+{% if change.advisory_record %}
+<p><small>Review suggestion ({{ change.advisory_record.source }} only, never approval):
+{{ change.advisory_record.explanation }}</small></p>
+<p><small>Verification step: {{ change.advisory_record.verification_step }}</small></p>
+{% endif %}
 <p>Decision status: {{ change.status }}</p>
 {% if change.status == "pending" %}
 <form action="{% url 'decision' job.id %}" method="post">
