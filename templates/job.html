@@ -15,6 +15,19 @@ maxlength="140" required></label>
 {% if job.status == "ready" %}
 <p><a href="{% url 'download' job.id %}">Download independently verified catalog CSV</a></p>
 <p><a href="{% url 'download_report' job.id %}">Download verified change report (JSON)</a></p>
+{% if is_confirmed %}
+<p><strong>Customer-confirmed imported version.</strong> This records the customer's
+own confirmation, not a V3 storefront write.</p>
+{% elif can_confirm %}
+<form method="post" action="{% url 'confirm_import' job.id %}">
+{% csrf_token %}
+<input type="hidden" name="import_confirmed" value="yes">
+<p><strong>Only after importing:</strong> Click below to confirm you independently
+imported this exact verified file into your store. This enables it as a baseline
+for the next supplier update.</p>
+<button type="submit">I confirm this file was imported into my store</button>
+</form>
+{% endif %}
 {% endif %}
 {% if can_review and details %}
 <h2>Operator review</h2>
