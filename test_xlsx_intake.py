@@ -111,6 +111,11 @@ class RestrictedExcelIntakeTests(unittest.TestCase):
         make_xlsx(self.source,["sku","stock"],[["A",0]],merged=True)
         with self.assertRaisesRegex(ValueError,"merged cells"):
             xlsx_intake.convert(self.source,self.dest)
+    def test_numeric_sku_is_rejected_to_protect_leading_zeros(self):
+        make_xlsx(self.source,["sku","stock"],[[123,0]])
+        with self.assertRaisesRegex(ValueError,"SKU cells must be stored as text"):
+            xlsx_intake.convert(self.source,self.dest)
+        self.assertFalse(self.dest.exists())
     def test_cannot_overwrite_existing(self):
         make_xlsx(self.source,["sku","stock"],[["A",0]])
         self.dest.write_text("important")
