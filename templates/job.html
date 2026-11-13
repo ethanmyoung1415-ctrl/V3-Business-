@@ -31,6 +31,9 @@ for the next supplier update.</p>
 {% endif %}
 {% if can_review and details %}
 <h2>Operator review</h2>
+<p><a href="{% url 'automation_preview' job.id %}">
+Preview what a future safely bounded automation policy might handle</a>.
+Read-only; does not approve anything.</p>
 <h3>Unresolved holds</h3>
 <p>Held supplier records are never applied. An operator may exclude one after
 verifying its invalid source should remain unchanged in the output.</p>
