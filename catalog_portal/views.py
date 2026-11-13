@@ -76,6 +76,17 @@ def decision(request,job_id):
 
 @login_required
 @require_POST
+def batch_approve(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        services.approve_safe_stock_batch(job,request.user,
+                                          request.POST.get("reason",""))
+    except (PermissionError,ValueError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.id)
+
+@login_required
+@require_POST
 def export_job(request,job_id):
     job=accessible_job(request.user,job_id)
     try:services.prepare_export(job,request.user)
