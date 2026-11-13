@@ -27,6 +27,7 @@ class Command(BaseCommand):
             # become visible as failures for operator investigation.
             call_command("reconcile_stale_jobs", "--minutes", "30", stdout=self.stdout)
             result=process_received_batch(limit)
+            call_command("reconcile_notices", "--limit", "500", stdout=self.stdout)
             if result:
                 self.stdout.write(f"Processed {len(result)} submission(s)")
             if options["once"]:break
