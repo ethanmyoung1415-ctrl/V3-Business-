@@ -1,12 +1,11 @@
-# V3 Preproduction Web Portal Demo
+# V3 Local Portal Demo — Synthetic Data Only
 
-**This is an engineering demonstration, not a production deployment. No real customers, paid subscriptions, credentials, or live-store integrations.**
+**Never run this server publicly or submit real customer data, live credentials or payment details.**
 
-## Requirements
-- Python 3.10+ with the latest supported security patch
-- Local development machine; no public tunnel or internet exposure
+## Setup
 
-## Setup (macOS/Linux)
+Python 3.10+ on macOS/Linux:
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -16,63 +15,84 @@ python manage.py migrate
 python manage.py seed_portal_demo --synthetic-only
 python manage.py runserver 127.0.0.1:8000
 ```
-Save the randomly generated demo credentials shown **once** in the local terminal. Do not paste them into GitHub or a chat.
 
-In a second terminal in the same environment:
+For Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` and set `$env:V3_LOCAL_DEV="1"`.
+
+The seed command prints randomly generated local demo passwords **once**. Do not paste them into chats or repositories.
+
+Start the worker in a second terminal (same environment):
 
 ```bash
 export V3_LOCAL_DEV=1
 python manage.py run_catalog_worker --interval 3
 ```
 
-On Windows PowerShell, activate with `.venv\Scripts\Activate.ps1` and set the environment flag with `$env:V3_LOCAL_DEV="1"`.
+Open http://127.0.0.1:8000/login/ .
 
-## Demo sequence
-1. Visit http://127.0.0.1:8000/login/ and sign in as `v3-demo-a`.
-2. Upload two fictional CSV files. A baseline must contain `sku,title,price,stock` headers. Supplier updates need `sku` and any subset of the other supported fields.
-3. The local worker should process the file into its store-specific workspace. Refresh the job page to see status `review`.
-4. Log out and sign in as `v3-demo-operator`. Approve or reject changes, providing reasons.
-5. Once all decisions are resolved and there are no holds, prepare an export.
-6. Sign in again as the correct store customer. Download the independently verified CSV.
-7. Log in as `v3-demo-b`: that account must not see or download Store A's job.
+## End-to-end recurring supplier workflow
+
+1. Sign in as `v3-demo-a` (fictional merchant).
+2. Upload baseline CSV and supplier update CSV for its store.
+3. The background worker validates file hashes, analyzes changes, stores read-only advice and places exceptions in the operator queue.
+4. Sign out and sign in as `v3-demo-operator`. Review previous/proposed values and evidence.
+5. Approve/reject with reasons. Held rows can be **excluded without applying them** when their original value should remain unchanged.
+6. With no unresolved holds or decisions, prepare the independently QA-verified export.
+7. Sign in again as Store A. Download the CSV and evidence-based JSON change report.
+8. **Pretend** to import the CSV into an imaginary store (no actual import exists). On the released job page, explicitly click `I confirm this file was imported into my store`.
+9. Submit a second supplier update and select `Reuse last customer-confirmed catalog`. Do not upload another baseline.
+10. Confirm that this second job compares against the first *verified and customer-confirmed* output, not an assumed remote store state.
+11. Sign in as `v3-demo-b` and confirm that Store A's jobs and files are inaccessible.
 
 Example baseline:
 
 ```csv
 sku,title,price,stock
 A,Sample,10,5
+B,Another,15,8
 ```
 
-Example update:
+Example supplier update:
 
 ```csv
 sku,stock
 A,0
+B,
 ```
 
-## What is implemented
-- Django's built-in login, session and CSRF protections
-- Store membership checks for every view
-- Validated CSV uploads into private local disk storage
-- Tenant-specific processing databases and staged snapshots
-- Operator-only review and audited decisions
-- Independent QA before export and verification on download
-- Synthetic user seeding and a local polling command
-- Automated tests of cross-customer isolation and denied actions
+A zero-stock update is valid and still requires explicit approval. The blank value is held and does not erase B's stock. The operator can exclude that held row after verifying the source, then export the unaffected approved changes.
 
-## Not implemented / not approved
-- Hardened production hosting, accounts and network access
-- Encrypted file storage, data-retention and deletion policy, malware scanning
-- Production queue, task retry strategy, backups of all file artifacts and incidents
-- Email delivery, automated customer support, Shopify API changes
-- Customer pricing, payment checkout, subscriptions or contractual acceptance
-- Live AI vendor integration, AI auto-approval or autonomous customer-impacting actions
-- Independent penetration testing, load testing and actual pilot acceptance
+## Supplier profiles
 
-The current SQLite and development server are not meant for internet-facing use. Production requires a reviewed infrastructure design, authorized account holders, TLS, database/storage permissions and incident response.
+Suppliers may call fields `Item Code`, `Qty Available` or similar. A local administrator can create a `SupplierProfile` for the right store in Django admin with a JSON mapping such as:
 
-Run both test suites after any changes:
+```json
+{"sku":"Item Code","stock":"Qty Available"}
+```
+
+The customer may select only active profiles for **their own store**. V3 saves a frozen copy of the mapping for that specific job. No heuristic guesses are made about price or stock. Creating or changing profiles through a live production UI is not yet available.
+
+## Operator reliability commands
+
+```bash
+python manage.py reconcile_stale_jobs --dry-run
+python manage.py reconcile_notices
+python manage.py emergency_stop --enable
+python manage.py emergency_stop --disable
+python manage.py purge_demo_uploads --days 30
+```
+
+The emergency stop prevents new processing and customer downloads until explicitly cleared. The purge command **does not delete anything by default**; `--confirm` is required and is limited to old terminal synthetic source uploads.
+
+Separate offline tools are available for synthetic workspace backup/verification in `workspace_archive.py` and SQLite backup/restore in `backup.py`. These archives are **not encrypted**, and neither constitutes complete production disaster recovery.
+
+## Tests
+
 ```bash
 python -m unittest discover -v -p 'test_*.py'
 python manage.py test catalog_portal
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python repo_guard.py
 ```
+
+GitHub Actions runs both test suites and the repository guard. The local developer server is not a hosted service. External AI, emails, payment subscriptions, real e-commerce API actions and actual customer-data processing remain disabled.
