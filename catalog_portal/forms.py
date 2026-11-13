@@ -126,3 +126,20 @@ class SupplierProfileCreateForm(forms.Form):
         except (json.JSONDecodeError,ValueError) as exc:
             raise forms.ValidationError("Invalid exact field map: %(error)s",
                 params={"error":str(exc)})
+
+class CustomerIssueForm(forms.Form):
+    subject=forms.CharField(max_length=120,min_length=5)
+    message=forms.CharField(max_length=500,min_length=15,
+        widget=forms.Textarea(attrs={"rows":4}))
+    def clean_message(self):
+        text=self.cleaned_data["message"].strip()
+        if "\x00" in text:raise forms.ValidationError("Invalid message text")
+        return text
+
+class CustomerResolutionForm(forms.Form):
+    resolution=forms.CharField(max_length=500,min_length=12,
+        widget=forms.Textarea(attrs={"rows":4}))
+    def clean_resolution(self):
+        text=self.cleaned_data["resolution"].strip()
+        if "\x00" in text:raise forms.ValidationError("Invalid resolution text")
+        return text
