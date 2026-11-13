@@ -84,6 +84,19 @@ def decide(job,user,change_id,decision,reason):
                                 detail="change_id:"+str(change_id)[:60])
     return result
 
+def approve_safe_stock_batch(job,user,reason):
+    """Operator-triggered batch approval; does not affect risky or ambiguous changes."""
+    require_operator(user,job)
+    if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
+        raise ValueError("job not reviewable")
+    result=engine.approve_low_risk_stock_batch(
+        backend_db(job.store_id),str(job.engine_job_id),
+        f"web-operator:{user.pk}",reason)
+    CatalogEvent.objects.create(
+        job=job,actor=user,kind="approved",
+        detail=f"explicit_small_stock_batch:{result['approved_count']}")
+    return result
+
 def output_path(job):
     identifier=str(uuid.UUID(str(job.id)))
     directory=backend_db(job.store_id).parent/"exports"
