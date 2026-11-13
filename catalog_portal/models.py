@@ -150,3 +150,20 @@ class CustomerIssue(models.Model):
     class Meta:
         indexes=[models.Index(fields=("store","status","created_at"),
                               name="v3issue_status_idx")]
+
+class StoreInvitation(models.Model):
+    """One-use local customer enrollment invitation; never email automatically."""
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    store=models.ForeignKey(Store,on_delete=models.PROTECT,
+                            related_name="local_invitations")
+    token_sha256=models.CharField(max_length=64,unique=True)
+    created_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,
+                                 related_name="issued_v3_invitations")
+    created_at=models.DateTimeField(auto_now_add=True)
+    expires_at=models.DateTimeField()
+    redeemed_at=models.DateTimeField(null=True,blank=True)
+    redeemed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,
+                                  null=True,blank=True,related_name="redeemed_v3_invitations")
+    class Meta:
+        indexes=[models.Index(fields=("store","expires_at"),
+                              name="v3invite_store_expiry_idx")]
