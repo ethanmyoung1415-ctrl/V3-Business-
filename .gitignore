@@ -3,3 +3,17 @@ __pycache__/
 *.sqlite3
 .env
 *.csv.bak
+
+# Local generated operational material — never commit customer data
+.v3_staged/
+exports/
+incoming/
+mock_customers/
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.csv.tmp
