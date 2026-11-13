@@ -67,8 +67,22 @@ class CatalogJob(models.Model):
     mapping_snapshot=models.JSONField(default=dict,blank=True,editable=False)
     baseline_sha256=models.CharField(max_length=64,blank=True,editable=False)
     supplier_sha256=models.CharField(max_length=64,blank=True,editable=False)
+    baseline_source_job=models.ForeignKey("self",on_delete=models.PROTECT,
+        null=True,blank=True,editable=False,related_name="derived_catalog_jobs")
     class Meta:
         indexes=[models.Index(fields=("store","created_at"),name="v3job_store_created_idx")]
+
+class CatalogConfirmation(models.Model):
+    """Customer assertion that a verified output was imported in their store."""
+    store=models.ForeignKey(Store,on_delete=models.PROTECT,
+                            related_name="confirmed_imports")
+    job=models.OneToOneField(CatalogJob,on_delete=models.PROTECT,
+                             related_name="confirmed_import")
+    confirmed_by=models.ForeignKey(settings.AUTH_USER_MODEL,
+                                   on_delete=models.PROTECT)
+    confirmed_at=models.DateTimeField(auto_now_add=True)
+    export_sha256=models.CharField(max_length=64)
+    def __str__(self):return f"Confirmed import of {self.job_id}"
 
 class CatalogEvent(models.Model):
     """Metadata-only event trail; never put supplier CSV content in details."""
