@@ -24,6 +24,7 @@ INSTALLED_APPS=[
 MIDDLEWARE=[
     "django.middleware.security.SecurityMiddleware",
     "v3portal.local_only.LocalOnlyPortal",
+    "v3portal.emergency_middleware.EmergencyStopMiddleware",
     "v3portal.login_throttle.LocalLoginThrottle",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
