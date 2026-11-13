@@ -67,7 +67,12 @@ def verify(db,job,output):
         if (not isinstance(released,dict) or
                 released.get("independent_qa")!="passed" or
                 released.get("sha256")!=sha):
-            raise ValueError("released export hash does not match current file")
+            # Preserve the structured mismatch report when row-level errors
+            # already explain the bad file. Fail closed either way.
+            if mismatches:
+                mismatches.append({"sku":None,"reason":"released export hash mismatch"})
+            else:
+                raise ValueError("released export hash does not match current file")
     elif release_events:
         raise ValueError("export release exists for non-exported job")
 
