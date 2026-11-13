@@ -65,6 +65,8 @@ class CatalogJob(models.Model):
     engine_job_id=models.UUIDField(null=True,blank=True,editable=False)
     export_sha256=models.CharField(max_length=64,blank=True,editable=False)
     mapping_snapshot=models.JSONField(default=dict,blank=True,editable=False)
+    baseline_sha256=models.CharField(max_length=64,blank=True,editable=False)
+    supplier_sha256=models.CharField(max_length=64,blank=True,editable=False)
     class Meta:
         indexes=[models.Index(fields=("store","created_at"),name="v3job_store_created_idx")]
 
