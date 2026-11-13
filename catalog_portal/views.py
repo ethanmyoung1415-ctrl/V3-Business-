@@ -8,6 +8,7 @@ from . import services,metrics
 import triage
 import engine
 import reporting
+import advice_jobs
 
 def accessible_store(user,store_id):
     store=get_object_or_404(Store,pk=store_id,active=True)
@@ -62,10 +63,14 @@ def job_detail(request,job_id):
     details=None
     if can_review and job.status==CatalogJob.STATUS_REVIEW:
         details=services.review(job,request.user)
+        database=services.backend_db(job.store_id)
         details["holds_with_tokens"]=engine.listed_holds(
-            services.backend_db(job.store_id),str(job.engine_job_id))
+            database,str(job.engine_job_id))
+        advisories={item["change_id"]:item for item in
+                    advice_jobs.read(database,str(job.engine_job_id))}
         for change in details["changes"]:
             change["advice"]=triage.assess_change(change)
+            change["advisory_record"]=advisories.get(change["id"])
     events=job.portal_events.select_related("actor").order_by("-created_at")[:30]
     return render(request,"job.html",{"job":job,"details":details,
                   "can_review":can_review,"events":events})
