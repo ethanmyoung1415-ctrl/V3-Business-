@@ -4,7 +4,7 @@
 
 ## Implemented workflows
 
-**Merchant intake:** A synthetic store customer signs into a local Django account and submits a baseline plus supplier CSV. The system validates schema/limits, hashes original uploads and stages immutable local copies. Alternatively, a merchant may select an exact store-scoped supplier header profile. That mapping is frozen on the job.
+**Merchant intake:** A synthetic store customer signs into a local Django account and submits a baseline plus supplier CSV or strictly supported single-sheet XLSX. The system validates schema/limits, hashes original uploads and stages immutable local copies. Alternatively, a merchant may select an exact store-scoped supplier header profile. That mapping is frozen on the job.
 
 **Managed analysis:** A local worker uses a stable job ID, compares catalogs, holds ambiguous or unsafe data and stores deterministic evidence/risk advice. An optional model adapter is coded but disabled without explicit local-only flags, provider credentials and permitted synthetic scope.
 
@@ -16,7 +16,11 @@
 
 **Reliability:** Stable job IDs prevent duplicate processing after an interrupted portal update; reasoned retries only for recoverable failures. In-app notices, stale-job review, local emergency stop, synthetic archive/restore and minimal retention controls are present.
 
-**Confidence:** GitHub Actions runs standard-library engine tests, Django portal tests and a repository guard. A green run confirms only tested scenarios; the latest run is at [GitHub Actions](https://github.com/ethanmyoung1415-ctrl/V3-Business-/actions).
+**Additional safety and operator-workflow components:** Independent decision/hold audit reconciliation blocks forged approvals or inconsistent exclusions. Released-file hashes are checked at download; an optional separately keyed HMAC receipt can verify matching release CSV/report bytes. A manual recovery tool prepares a prior catalog snapshot without touching a live store. A read-only, disabled-by-default autonomy simulator shows which narrowly bounded stock updates might be eligible under a *future* authorized policy; it never approves anything. A synthetic-only single-use invitation flow allows scoped mock customer enrollment without open public registration.
+
+**Excel restrictions:** XLSX intake is strictly limited to canonical, simple sheets. Workbooks with formulas, macros, linked data, hidden or merged rows, styled numeric/date cells, ambiguous multiple sheets or numeric SKU identifiers are rejected. Existing supplier header profiles still require CSV. See [XLSX Intake](XLSX_INTAKE.md).
+
+**Confidence:** GitHub Actions runs standard-library engine tests, Django portal tests and a repository guard. It also runs the synthetic preflight, which deliberately reports commercial NO-GO. A green run confirms only tested scenarios; the latest run is at [GitHub Actions](https://github.com/ethanmyoung1415-ctrl/V3-Business-/actions).
 
 ## Demo and review resources
 - [Portal walkthrough](PORTAL_DEMO.md)
@@ -27,13 +31,18 @@
 - [Proposed controlled pilot](PILOT_PLAN.md)
 - [Adult/business account briefing](ADULT_HANDOFF.md)
 - [Commercial release checklist](PRODUCTION_GATE.md)
+- [XLSX support and unsupported workbook features](XLSX_INTAKE.md)
+- [Local synthetic invitations](LOCAL_INVITATIONS.md)
+- [Future automation simulation](AUTOMATION_SIMULATION.md)
+- [Manual recovery procedure](MANUAL_RECOVERY.md)
+- [Optional release receipts](RELEASE_RECEIPTS.md)
 
 ## Not yet operational
 - Public web hosting, domain, TLS ingress, production object storage/PostgreSQL and queue
 - Commercial account provisioning, independent professional security audit and incident/backup operations
 - Real external AI model invocations, approved data-transfer terms or provider usage budget
 - Shopify/other store connectors, actual store data reads/writes or automatic remote import confirmation
-- Customer enrollment, email delivery, service agreements, billing, payments, taxes or bookkeeping
+- **Production** customer onboarding, verified email/identity, service agreements, billing, payments, taxes or bookkeeping (local mock invitations exist only for testing)
 - Real customer interviews, paid pilots, contractual renewals, measured margins and validated pricing
 
 ## Dependencies that genuinely require help
