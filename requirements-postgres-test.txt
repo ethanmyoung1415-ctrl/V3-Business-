@@ -1,0 +1,2 @@
+-r requirements-portal.txt
+psycopg[binary]>=3.2.0,<4
