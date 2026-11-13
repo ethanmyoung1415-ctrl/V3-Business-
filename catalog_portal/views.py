@@ -23,7 +23,14 @@ def dashboard(request):
     memberships=Membership.objects.filter(user=request.user,store__active=True).select_related("store")
     store_ids=memberships.values_list("store_id",flat=True)
     jobs=CatalogJob.objects.filter(store_id__in=store_ids).order_by("-created_at")[:100]
-    return render(request,"dashboard.html",{"memberships":memberships,"jobs":jobs})
+    operator_store_ids=memberships.filter(role=Membership.ROLE_OPERATOR).values_list("store_id",flat=True)
+    attention=CatalogJob.objects.filter(
+        store_id__in=operator_store_ids,
+        status__in=[CatalogJob.STATUS_FAILED,CatalogJob.STATUS_REVIEW]
+    ).select_related("store").order_by("created_at")[:50]
+    return render(request,"dashboard.html",{
+        "memberships":memberships,"jobs":jobs,"operator_attention":attention,
+    })
 
 @login_required
 @require_http_methods(["GET","POST"])
@@ -51,8 +58,9 @@ def job_detail(request,job_id):
         details=services.review(job,request.user)
         for change in details["changes"]:
             change["advice"]=triage.assess_change(change)
+    events=job.portal_events.select_related("actor").order_by("-created_at")[:30]
     return render(request,"job.html",{"job":job,"details":details,
-                  "can_review":can_review})
+                  "can_review":can_review,"events":events})
 
 @login_required
 @require_POST
