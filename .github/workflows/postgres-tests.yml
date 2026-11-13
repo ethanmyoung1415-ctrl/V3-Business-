@@ -1,0 +1,44 @@
+name: Synthetic PostgreSQL compatibility
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  django-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: v3_synthetic
+          POSTGRES_USER: v3_local_test
+          POSTGRES_PASSWORD: fictional_test_password_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U v3_local_test -d v3_synthetic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      V3_LOCAL_DEV: "1"
+      V3_TEST_POSTGRES: "1"
+      V3_TEST_PG_DATABASE: v3_synthetic
+      V3_TEST_PG_USER: v3_local_test
+      V3_TEST_PG_PASSWORD: fictional_test_password_only
+      V3_TEST_PG_HOST: 127.0.0.1
+      V3_TEST_PG_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install isolated test dependencies
+        run: python -m pip install -r requirements-postgres-test.txt
+      - name: Confirm migration compatibility
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+      - name: Run full synthetic portal suite on PostgreSQL
+        run: python manage.py test catalog_portal --verbosity 1
