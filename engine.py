@@ -8,15 +8,27 @@ FIELDS=("sku","title","price","stock")
 def timestamp(): return datetime.now(timezone.utc).isoformat()
 def digest(path): return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def price(value):
+    """Canonical non-negative decimal, preserving up to four decimal places.
+
+    Avoid interpreting price strings as money in a particular currency.
+    Explicit limits prevent pathological exponents or unreasonably large values.
+    """
     try:
         v=Decimal(str(value).strip())
-        if not v.is_finite() or v<0: raise ValueError()
-        return str(v)
-    except (InvalidOperation,ValueError): raise ValueError("invalid price")
+        if not v.is_finite() or v<0 or v>Decimal("1000000000"):
+            raise ValueError()
+        normalized=v.normalize()
+        if normalized.as_tuple().exponent < -4:
+            raise ValueError()
+        return format(normalized,"f")
+    except (InvalidOperation,ValueError):raise ValueError("invalid price")
 def stock(value):
     s=str(value).strip()
-    if not s.isascii() or not s.isdigit(): raise ValueError("invalid stock")
-    return str(int(s))
+    if not s.isascii() or not s.isdigit() or len(s)>15:
+        raise ValueError("invalid stock")
+    quantity=int(s)
+    if quantity>1_000_000_000:raise ValueError("invalid stock")
+    return str(quantity)
 def load(path):
     path=Path(path)
     if path.stat().st_size>15_000_000: raise ValueError("file too large")
