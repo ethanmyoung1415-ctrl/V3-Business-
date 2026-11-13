@@ -85,3 +85,30 @@ class CatalogEvent(models.Model):
     detail=models.CharField(max_length=180,blank=True)
     class Meta:
         indexes=[models.Index(fields=("job","created_at"),name="v3event_job_time_idx")]
+
+class PortalNotice(models.Model):
+    """In-app status only. No delivery to email, phone or third parties."""
+    AUDIENCE_OPERATOR="operator"
+    AUDIENCE_CUSTOMER="customer"
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    store=models.ForeignKey(Store,on_delete=models.CASCADE,related_name="notices")
+    job=models.ForeignKey(CatalogJob,on_delete=models.CASCADE,related_name="notices")
+    kind=models.CharField(max_length=30,choices=[
+        ("needs_review","Needs review"),("job_failed","Job failed"),
+        ("export_ready","Export ready")])
+    audience=models.CharField(max_length=20,choices=[
+        (AUDIENCE_OPERATOR,"Operator"),(AUDIENCE_CUSTOMER,"Customer")])
+    dedupe_key=models.CharField(max_length=120,unique=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        indexes=[models.Index(fields=("store","audience","created_at"),
+                              name="v3notice_audience_idx")]
+
+class NoticeRead(models.Model):
+    notice=models.ForeignKey(PortalNotice,on_delete=models.CASCADE,
+                             related_name="read_receipts")
+    user=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE)
+    read_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=("notice","user"),
+                                              name="unique_notice_read_user")]
