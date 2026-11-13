@@ -1,8 +1,8 @@
 from django.core.cache import cache
-from django.test import SimpleTestCase
+from django.test import TestCase
 from django.urls import reverse
 
-class LocalLoginThrottleTests(SimpleTestCase):
+class LocalLoginThrottleTests(TestCase):
     def setUp(self):
         cache.clear()
     def test_login_post_rate_limit(self):
