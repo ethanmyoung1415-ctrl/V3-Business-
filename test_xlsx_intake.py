@@ -116,6 +116,36 @@ class RestrictedExcelIntakeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"SKU cells must be stored as text"):
             xlsx_intake.convert(self.source,self.dest)
         self.assertFalse(self.dest.exists())
+    def test_text_sku_preserves_leading_zeros(self):
+        make_xlsx(self.source,["sku","stock"],[["0012345",0]])
+        xlsx_intake.convert(self.source,self.dest)
+        self.assertIn("0012345,0",self.dest.read_text())
+    def test_shared_string_cells_preserve_identifiers(self):
+        # Construct a minimal real XLSX using shared string references.
+        ns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+        rel="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        workbook=(f'<workbook xmlns="{ns}" xmlns:r="{rel}"><sheets>'
+                  '<sheet name="Stock" sheetId="1" r:id="rId1"/></sheets></workbook>')
+        relationships=(
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f'<Relationship Id="rId1" Type="{rel}/worksheet" '
+            'Target="worksheets/sheet1.xml"/></Relationships>')
+        shared=(f'<sst xmlns="{ns}" count="3" uniqueCount="3">'
+                '<si><t>sku</t></si><si><t>stock</t></si>'
+                '<si><t>000987</t></si></sst>')
+        sheet=(f'<worksheet xmlns="{ns}"><sheetData>'
+               '<row r="1"><c r="A1" t="s"><v>0</v></c>'
+               '<c r="B1" t="s"><v>1</v></c></row>'
+               '<row r="2"><c r="A2" t="s"><v>2</v></c>'
+               '<c r="B2"><v>0</v></c></row></sheetData></worksheet>')
+        with zipfile.ZipFile(self.source,"w",compression=zipfile.ZIP_DEFLATED) as z:
+            z.writestr("xl/workbook.xml",workbook)
+            z.writestr("xl/_rels/workbook.xml.rels",relationships)
+            z.writestr("xl/sharedStrings.xml",shared)
+            z.writestr("xl/worksheets/sheet1.xml",sheet)
+        result=xlsx_intake.convert(self.source,self.dest)
+        self.assertEqual(result["rows"],1)
+        self.assertIn("000987,0",self.dest.read_text())
     def test_cannot_overwrite_existing(self):
         make_xlsx(self.source,["sku","stock"],[["A",0]])
         self.dest.write_text("important")
