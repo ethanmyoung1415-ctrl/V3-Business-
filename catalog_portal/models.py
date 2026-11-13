@@ -126,3 +126,27 @@ class NoticeRead(models.Model):
     class Meta:
         constraints=[models.UniqueConstraint(fields=("notice","user"),
                                               name="unique_notice_read_user")]
+
+class CustomerIssue(models.Model):
+    """Limited local feedback about a catalog job; no external messaging."""
+    STATUS_OPEN="open"
+    STATUS_RESOLVED="resolved"
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    store=models.ForeignKey(Store,on_delete=models.PROTECT,
+                            related_name="catalog_issues")
+    job=models.ForeignKey(CatalogJob,on_delete=models.PROTECT,
+                          related_name="catalog_issues")
+    opened_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,
+                                related_name="opened_catalog_issues")
+    subject=models.CharField(max_length=120)
+    message=models.CharField(max_length=500)
+    status=models.CharField(max_length=15,choices=[
+        ("open","Open"),("resolved","Resolved")],default=STATUS_OPEN)
+    resolution=models.CharField(max_length=500,blank=True)
+    resolved_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,
+                                  null=True,blank=True,related_name="resolved_catalog_issues")
+    created_at=models.DateTimeField(auto_now_add=True)
+    resolved_at=models.DateTimeField(null=True,blank=True)
+    class Meta:
+        indexes=[models.Index(fields=("store","status","created_at"),
+                              name="v3issue_status_idx")]
