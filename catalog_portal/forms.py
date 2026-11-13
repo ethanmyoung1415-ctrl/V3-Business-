@@ -1,10 +1,14 @@
+"""Preproduction CSV upload checks. These mirror engine rules at intake."""
 import csv
 import io
 from django import forms
+import engine
 from .models import CatalogJob
 
 LIMIT=15_000_000
 ALLOWED={"sku","title","price","stock"}
+DANGEROUS_PREFIX=("=","+","-","@")
+CONTROL_CHARS=("\x00","\t","\r","\n")
 
 def validate_csv(upload,baseline=False):
     if not upload.name.lower().endswith(".csv"):
@@ -15,19 +19,41 @@ def validate_csv(upload,baseline=False):
         contents=upload.read(LIMIT+1)
         if len(contents)>LIMIT:raise ValueError("file too large")
         text=contents.decode("utf-8-sig")
-        reader=csv.DictReader(io.StringIO(text))
+        reader=csv.DictReader(io.StringIO(text,newline=""),strict=True)
         fields=reader.fieldnames
         if not fields:raise ValueError("missing header")
-        fields=[x.strip().lower() for x in fields]
-        if len(fields)!=len(set(fields)) or not set(fields)<=ALLOWED or "sku" not in fields:
+        normalized=[name.strip().lower() for name in fields]
+        if len(normalized)!=len(set(normalized)) or not set(normalized)<=ALLOWED or "sku" not in normalized:
             raise ValueError("unsupported or duplicate columns")
-        if baseline and set(fields)!=ALLOWED:
+        if baseline and set(normalized)!=ALLOWED:
             raise ValueError("baseline requires sku, title, price and stock")
+        seen=set()
         count=0
         for count,row in enumerate(reader,1):
             if count>100000:raise ValueError("too many rows")
             if None in row or any(v is None for v in row.values()):
                 raise ValueError("malformed CSV row")
+            cleaned={key.strip().lower():value for key,value in row.items()}
+            sku=cleaned["sku"].strip()
+            if not sku:
+                raise ValueError("blank SKU")
+            for field in ("sku","title"):
+                value=cleaned.get(field,"")
+                if value.lstrip().startswith(DANGEROUS_PREFIX) or any(ch in value for ch in CONTROL_CHARS):
+                    raise ValueError(f"unsafe spreadsheet text in {field}")
+            if baseline:
+                if sku in seen:raise ValueError("duplicate baseline SKU")
+                seen.add(sku)
+                # Prevent partial acceptance: anything that would make the
+                # baseline unprocessable is rejected at the upload boundary.
+                engine.price(cleaned["price"])
+                engine.stock(cleaned["stock"])
+            else:
+                # Updates with empty values remain valid inputs but are HELD
+                # by the engine; don't turn valid empty/zero stock into a blank.
+                for field,validator in (("price",engine.price),("stock",engine.stock)):
+                    if field in cleaned and cleaned[field].strip():
+                        validator(cleaned[field])
         if count==0:raise ValueError("empty catalog")
     except (UnicodeDecodeError,csv.Error,ValueError) as ex:
         raise forms.ValidationError("Invalid CSV: %(reason)s",params={"reason":str(ex)})
