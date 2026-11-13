@@ -7,6 +7,7 @@ urlpatterns=[
     path("login/",auth_views.LoginView.as_view(template_name="login.html"),name="login"),
     path("logout/",auth_views.LogoutView.as_view(),name="logout"),
     path("",views.dashboard,name="dashboard"),
+    path("notices/<uuid:notice_id>/read/",views.mark_notice_read,name="mark_notice_read"),
     path("stores/<uuid:store_id>/submit/",views.submit,name="submit"),
     path("jobs/<uuid:job_id>/",views.job_detail,name="job_detail"),
     path("jobs/<uuid:job_id>/decide/",views.decision,name="decision"),
