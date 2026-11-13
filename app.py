@@ -7,8 +7,8 @@ import multiprocessing
 import operator_dashboard
 import worker
 
-def start(db,port,actor,interval):
-    process=multiprocessing.Process(target=worker.run,args=(db,interval),daemon=True)
+def start(db,port,actor,interval,inbox_dir=None):
+    process=multiprocessing.Process(target=worker.run,args=(db,interval,None,inbox_dir),daemon=True)
     process.start()
     try:
         operator_dashboard.start(db,port,actor)
@@ -24,7 +24,8 @@ def main():
     p.add_argument("--port",type=int,default=8765)
     p.add_argument("--actor",default="local-operator")
     p.add_argument("--interval",type=float,default=3.0)
+    p.add_argument("--inbox",help="local synthetic READY-job inbox directory")
     a=p.parse_args()
     if a.interval<0.1 or a.interval>3600:p.error("interval must be 0.1–3600 seconds")
-    start(a.db,a.port,a.actor,a.interval)
+    start(a.db,a.port,a.actor,a.interval,a.inbox)
 if __name__=="__main__":main()
