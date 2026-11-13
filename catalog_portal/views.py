@@ -5,9 +5,9 @@ from django.http import Http404,FileResponse,HttpResponse
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
-from .forms import JobForm,SupplierProfileCreateForm
-from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile
-from . import services,metrics,notices
+from .forms import JobForm,SupplierProfileCreateForm,CustomerIssueForm,CustomerResolutionForm
+from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile,CustomerIssue
+from . import services,metrics,notices,issues,emergency
 import triage
 import engine
 import reporting
@@ -137,12 +137,14 @@ def job_detail(request,job_id):
             change["advice"]=triage.assess_change(change)
             change["advisory_record"]=advisories.get(change["id"])
     events=job.portal_events.select_related("actor").order_by("-created_at")[:30]
+    cases=job.catalog_issues.select_related("opened_by","resolved_by").order_by("-created_at")[:30]
     can_confirm=Membership.objects.filter(
         user=request.user,store=job.store,role=Membership.ROLE_CUSTOMER).exists()
     is_confirmed=hasattr(job,"confirmed_import")
     return render(request,"job.html",{"job":job,"details":details,
                   "can_review":can_review,"events":events,
-                  "can_confirm":can_confirm,"is_confirmed":is_confirmed})
+                  "can_confirm":can_confirm,"is_confirmed":is_confirmed,
+                  "cases":cases,"issue_form":CustomerIssueForm()})
 
 @login_required
 @require_POST
@@ -177,6 +179,42 @@ def retry_failed(request,job_id):
     except (PermissionError,ValueError,OSError):
         raise Http404()
     return redirect("job_detail",job_id=job.pk)
+
+@login_required
+@require_POST
+def open_quality_issue(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        emergency.require_running()
+    except RuntimeError:
+        return HttpResponse("Service paused",status=503)
+    form=CustomerIssueForm(request.POST)
+    if not form.is_valid():
+        raise Http404()
+    try:
+        issues.open_case(job,request.user,form.cleaned_data["subject"],
+                         form.cleaned_data["message"])
+    except (PermissionError,ValueError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.pk)
+
+@login_required
+@require_POST
+def resolve_quality_issue(request,issue_id):
+    case=get_object_or_404(CustomerIssue.objects.select_related("job"),
+                            pk=issue_id)
+    accessible_store(request.user,case.store_id)
+    form=CustomerResolutionForm(request.POST)
+    if not form.is_valid():
+        raise Http404()
+    try:
+        emergency.require_running()
+        issues.resolve_case(case,request.user,form.cleaned_data["resolution"])
+    except (PermissionError,ValueError):
+        raise Http404()
+    except RuntimeError:
+        return HttpResponse("Service paused",status=503)
+    return redirect("job_detail",job_id=case.job_id)
 
 @login_required
 @require_POST
