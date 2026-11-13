@@ -96,3 +96,14 @@ python repo_guard.py
 ```
 
 GitHub Actions runs both test suites and the repository guard. The local developer server is not a hosted service. External AI, emails, payment subscriptions, real e-commerce API actions and actual customer-data processing remain disabled.
+
+## Restricted fictional Excel files
+
+The local portal also accepts simple single-sheet `.xlsx` workbooks with
+standard V3 headers. All SKU cells must be stored as text to preserve leading
+zeros. Formula cells, hyperlinks, macros, external relationships, hidden or
+merged data, styled numeric/date cells, ambiguous sheets and XLSX with custom
+supplier mappings are rejected. For ordinary supplier spreadsheets containing
+those features, export a reviewed flat CSV for the demonstration. Original
+XLSX upload hashes are preserved in the job record. See
+[XLSX Intake](XLSX_INTAKE.md) for limits.
