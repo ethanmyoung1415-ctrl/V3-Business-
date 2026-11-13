@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db import transaction
 import engine
 import intake
+import mapping as mapper
 import qa
 from .models import CatalogJob,Membership,CatalogEvent
 
@@ -39,7 +40,13 @@ def process_received(job_id):
     try:
         database=backend_db(job.store_id)
         snapshots=intake.stage_pair(job.baseline.path,job.supplier_update.path,database)
-        result=engine.ingest(database,snapshots[0][0],snapshots[1][0])
+        supplier_input=snapshots[1][0]
+        if job.mapping_snapshot:
+            mapper.validate_mapping(job.mapping_snapshot)
+            converted=supplier_input.parent/(str(uuid.uuid4())+"-normalized.csv")
+            mapper.normalize_csv(supplier_input,converted,job.mapping_snapshot)
+            supplier_input=converted
+        result=engine.ingest(database,snapshots[0][0],supplier_input)
         job.engine_job_id=uuid.UUID(result["job_id"])
         job.status=CatalogJob.STATUS_REVIEW
         job.error_code=""
