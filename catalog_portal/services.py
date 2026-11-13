@@ -14,7 +14,7 @@ import mapping as mapper
 import qa
 import advice_jobs
 from .models import CatalogJob,Membership,CatalogEvent,CatalogConfirmation
-from . import notices
+from . import notices,emergency
 
 def backend_db(store_id):
     identifier=str(uuid.UUID(str(store_id)))
@@ -41,6 +41,7 @@ def confirm_import(job,user):
 
     No store connection or import is performed by V3.
     """
+    emergency.require_running()
     if not getattr(user,"is_authenticated",False) or not Membership.objects.filter(
             user=user,store_id=job.store_id,role=Membership.ROLE_CUSTOMER).exists():
         raise PermissionError("a store customer must confirm an import")
@@ -65,6 +66,7 @@ def confirm_import(job,user):
 
 def process_received(job_id):
     """Claim exactly one pending portal upload; crash remains fail-closed."""
+    emergency.require_running()
     with transaction.atomic():
         updated=CatalogJob.objects.filter(
             pk=job_id,status=CatalogJob.STATUS_RECEIVED).update(
@@ -129,6 +131,8 @@ def process_received(job_id):
         raise
 
 def process_received_batch(max_jobs=10):
+    if emergency.is_paused():
+        return []
     if not 1<=max_jobs<=100:raise ValueError("invalid batch size")
     ids=CatalogJob.objects.filter(status=CatalogJob.STATUS_RECEIVED).order_by(
         "created_at").values_list("id",flat=True)[:max_jobs]
@@ -140,6 +144,7 @@ def process_received_batch(max_jobs=10):
 
 def request_retry(job,user,reason):
     """Operator-approved local recovery for a stopped job, never a blind retry."""
+    emergency.require_running()
     require_operator(user,job)
     if not isinstance(reason,str) or len(reason.strip())<12:
         raise ValueError("retry investigation reason required")
@@ -169,6 +174,7 @@ def review(job,user):
     return engine.review(backend_db(job.store_id),str(job.engine_job_id))
 
 def decide(job,user,change_id,decision,reason):
+    emergency.require_running()
     detail=review(job,user)
     if change_id not in {c["id"] for c in detail["changes"]}:
         raise ValueError("change belongs to another job")
@@ -181,6 +187,7 @@ def decide(job,user,change_id,decision,reason):
     return result
 
 def exclude_held_record(job,user,token,reason):
+    emergency.require_running()
     """Approve skipping one invalid source record; never approve its value."""
     require_operator(user,job)
     if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
@@ -193,6 +200,7 @@ def exclude_held_record(job,user,token,reason):
     return result
 
 def approve_safe_stock_batch(job,user,reason):
+    emergency.require_running()
     """Operator-triggered batch approval; does not affect risky or ambiguous changes."""
     require_operator(user,job)
     if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
@@ -212,6 +220,7 @@ def output_path(job):
     return directory/(identifier+".csv")
 
 def prepare_export(job,user):
+    emergency.require_running()
     require_operator(user,job)
     if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
         raise ValueError("job cannot be exported")
@@ -240,6 +249,7 @@ def prepare_export(job,user):
     return result
 
 def verified_download_path(job):
+    emergency.require_running()
     if job.status!=CatalogJob.STATUS_READY or not job.engine_job_id:
         raise ValueError("export not ready")
     path=output_path(job)
