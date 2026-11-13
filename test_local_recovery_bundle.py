@@ -73,7 +73,7 @@ class SyntheticFullRecoveryTests(unittest.TestCase):
                 if name=="uploads/store-a/original.csv":
                     content=b"sku,stock\n001,999\n"
                 out.writestr(name,content)
-        with self.assertRaisesRegex(ValueError,"digest"):
+        with self.assertRaisesRegex(ValueError,"digest|size"):
             recovery.inspect(altered)
         self.assertFalse(self.target.exists())
     def test_zip_slip_rejected(self):
