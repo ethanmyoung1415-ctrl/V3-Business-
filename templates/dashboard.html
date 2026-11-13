@@ -30,6 +30,7 @@
 <li><a href="{% url 'job_detail' job.id %}">{{ job.store.name }}: {{ job.status }}</a></li>
 {% endfor %}</ul>
 {% endif %}
+<p>Need help? Open the relevant job to report a catalog issue, or view its resolution.</p>
 <h2>Recent submissions</h2><ul>{% for job in jobs %}
 <li><a href="{% url 'job_detail' job.id %}">{{ job.id }}</a> — {{ job.store.name }} — {{ job.status }}</li>
 {% empty %}<li>No submissions.</li>{% endfor %}</ul>
