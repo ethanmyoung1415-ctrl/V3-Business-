@@ -40,7 +40,15 @@ def process_received(job_id):
     job=CatalogJob.objects.get(pk=job_id)
     try:
         database=backend_db(job.store_id)
+        if not job.baseline_sha256 or not job.supplier_sha256:
+            raise ValueError("source submission lacks required hashes")
+        if (engine.digest(job.baseline.path)!=job.baseline_sha256 or
+                engine.digest(job.supplier_update.path)!=job.supplier_sha256):
+            raise ValueError("original upload changed since submission")
         snapshots=intake.stage_pair(job.baseline.path,job.supplier_update.path,database)
+        if (snapshots[0][1]!=job.baseline_sha256 or
+                snapshots[1][1]!=job.supplier_sha256):
+            raise ValueError("staged source differs from submitted upload")
         supplier_input=snapshots[1][0]
         if job.mapping_snapshot:
             mapper.validate_mapping(job.mapping_snapshot)
