@@ -1,7 +1,38 @@
 {% extends "base.html" %}{% block content %}
-<h1>Submission {{ job.id }}</h1><p>Store: {{ job.store.name }}</p>
-<p>Status: <strong>{{ job.status }}</strong></p>
+<h1>Submission {{ job.id }}</h1>
+<p>Store: {{ job.store.name }}</p><p>Status: <strong>{{ job.status }}</strong></p>
 <p>Received: {{ job.created_at }}</p>
-<p>Files are private and are not served directly to browsers.</p>
+{% if job.status == "ready" %}
+<p><a href="{% url 'download' job.id %}">Download independently verified catalog CSV</a></p>
+{% endif %}
+{% if can_review and details %}
+<h2>Operator review</h2>
+<h3>Unresolved holds</h3>
+<ul>{% for hold in details.holds %}
+<li>{{ hold }}</li>{% empty %}<li>No holds.</li>{% endfor %}</ul>
+<h3>Proposed changes</h3>
+{% for change in details.changes %}
+<section>
+<p><strong>{{ change.sku }}</strong> · {{ change.field }}</p>
+<p>Previous: {{ change.old }} → Proposed: {{ change.new }}</p>
+<p>Risk: {{ change.advice.risk }} · {{ change.advice.explanation }}</p>
+<p>Decision status: {{ change.status }}</p>
+{% if change.status == "pending" %}
+<form action="{% url 'decision' job.id %}" method="post">
+{% csrf_token %}
+<input type="hidden" name="change_id" value="{{ change.id }}">
+<label>Reason <input name="reason" maxlength="300" required></label>
+<button type="submit" name="decision" value="approved">Approve</button>
+<button type="submit" name="decision" value="rejected">Reject</button>
+</form>
+{% endif %}
+</section>
+{% empty %}<p>No changes detected.</p>{% endfor %}
+<form action="{% url 'export_job' job.id %}" method="post">
+{% csrf_token %}<button type="submit">Prepare independently verified export</button>
+</form>
+<p>Export is blocked until every decision is resolved and there are no holds.</p>
+{% endif %}
+<p>Source uploads are private and are not served directly to browsers.</p>
 <a href="{% url 'dashboard' %}">Back to my stores</a>
 {% endblock %}
