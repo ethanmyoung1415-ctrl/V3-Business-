@@ -1,9 +1,12 @@
 """Tenant-limited catalog upload validation and explicit supplier mappings."""
 import csv
 import io
+import tempfile
+from pathlib import Path
 from django import forms
 import engine
 import mapping as mapper
+import xlsx_intake
 from .models import CatalogJob,SupplierProfile,CatalogConfirmation
 
 LIMIT=15_000_000
@@ -65,6 +68,32 @@ def validate_csv(upload,baseline=False,mapping=None):
         upload.seek(0)
     return upload
 
+def validate_tabular_upload(upload,baseline=False,mapping=None):
+    """Accept canonical CSV or a narrowly supported single-sheet XLSX."""
+    if upload.name.lower().endswith(".csv"):
+        return validate_csv(upload,baseline=baseline,mapping=mapping)
+    if not upload.name.lower().endswith(".xlsx"):
+        raise forms.ValidationError("Only CSV or restricted XLSX workbooks are supported")
+    if mapping is not None:
+        raise forms.ValidationError(
+            "XLSX requires standard V3 column headers; convert to CSV for custom supplier mappings.")
+    if upload.size<=0 or upload.size>LIMIT:
+        raise forms.ValidationError("Workbook file must be between 1 byte and 15 MB")
+    try:
+        with tempfile.TemporaryDirectory(prefix="v3-xlsx-check-") as folder:
+            source=Path(folder)/"synthetic-upload.xlsx"
+            target=Path(folder)/"validated.csv"
+            source.write_bytes(upload.read(LIMIT+1))
+            if source.stat().st_size>LIMIT:
+                raise ValueError("workbook too large")
+            xlsx_intake.convert(source,target,baseline=baseline)
+    except (OSError,ValueError) as error:
+        raise forms.ValidationError("Unsupported or unsafe workbook: %(reason)s",
+                                    params={"reason":str(error)})
+    finally:
+        upload.seek(0)
+    return upload
+
 class JobForm(forms.ModelForm):
     supplier_profile=forms.ModelChoiceField(
         queryset=SupplierProfile.objects.none(),required=False,
@@ -86,7 +115,7 @@ class JobForm(forms.ModelForm):
             store=store,active=True)
     def clean_baseline(self):
         upload=self.cleaned_data.get("baseline")
-        return validate_csv(upload,baseline=True) if upload else None
+        return validate_tabular_upload(upload,baseline=True) if upload else None
     def clean(self):
         data=super().clean()
         update=data.get("supplier_update")
@@ -103,7 +132,7 @@ class JobForm(forms.ModelForm):
                            "No confirmed imported catalog is available for this store.")
         if update is not None:
             try:
-                validate_csv(update,mapping=profile.mapping if profile else None)
+                validate_tabular_upload(update,mapping=profile.mapping if profile else None)
             except forms.ValidationError as exc:
                 self.add_error("supplier_update",exc)
         return data
