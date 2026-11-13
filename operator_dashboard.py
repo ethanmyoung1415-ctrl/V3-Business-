@@ -3,7 +3,7 @@ import argparse,html,secrets,sqlite3,json,uuid
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import parse_qs,urlparse
-import engine,operations,triage,qa,metrics
+import engine,operations,triage,qa,metrics,supervisor
 
 def esc(value): return html.escape(str(value),quote=True)
 def document(content):
@@ -34,12 +34,26 @@ def overview(db):
             '</td><td>'+str(item["pending_decisions"])+'</td><td>'+
             str(item["unresolved_holds"])+'</td><td>'+link+'</td></tr>')
     status+='<table><tr><th>Work</th><th>Status</th><th>Pending</th><th>Holds</th><th>Action</th></tr>'+''.join(attention)+'</table>'
+    brief=supervisor.briefing(db,10)
+    brief_html='<h2>Priority briefing</h2>'
+    if not brief["items"]:
+        brief_html+='<p>No exceptions currently require an operator decision.</p>'
+    else:
+        for alert in brief["items"]:
+            job_link=(f'<a href="/job/{esc(alert["job_id"])}">Open job</a>'
+                      if alert.get("job_id") else 'Investigate failed worker')
+            brief_html+=('<p><strong>'+esc(alert["severity"].upper())+'</strong> '+
+                esc(alert["summary"])+' — '+esc(alert["recommended_next_step"])+
+                ' · '+job_link+'</p>')
+        if brief["truncated"]:
+            brief_html+='<small>More exceptions exist than shown in this summary.</small>'
+
 
     rows=[]
     for j in stats['jobs']:
         link=f'<a href="/job/{esc(j["engine_job_id"])}">Review changes</a>' if j.get('engine_job_id') else '—'
         rows.append(f'<tr><td><code>{esc(j["id"][:12])}</code></td><td>{esc(j["status"])}</td><td>{esc(j.get("pending_decisions",0))}</td><td>{esc(j.get("holds",0))}</td><td>{esc(j.get("last_error") or "—")}</td><td>{link}</td></tr>')
-    return document('<section><h2>Overview</h2>'+badges+'</section><section>'+status+'</section><section><h2>Jobs</h2><table><tr><th>ID</th><th>Status</th><th>Pending</th><th>Holds</th><th>Last error</th><th>Action</th></tr>'+''.join(rows)+'</table></section>')
+    return document('<section><h2>Overview</h2>'+badges+'</section><section>'+brief_html+'</section><section>'+status+'</section><section><h2>Jobs</h2><table><tr><th>ID</th><th>Status</th><th>Pending</th><th>Holds</th><th>Last error</th><th>Action</th></tr>'+''.join(rows)+'</table></section>')
 def output_path(db,job):
     canonical=str(uuid.UUID(job))
     if canonical!=job:raise ValueError("invalid job identifier")
