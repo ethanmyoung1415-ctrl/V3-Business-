@@ -1,4 +1,12 @@
 {% extends "base.html" %}{% block content %}
+{% if scorecard.jobs_total %}
+<section aria-label="Operations scorecard">
+<h2>Operations scorecard</h2>
+<p>Jobs: {{ scorecard.jobs_total }} · Awaiting operator review: {{ scorecard.jobs_awaiting_review }}
+· Failed: {{ scorecard.jobs_failed }} · Verified exports ready: {{ scorecard.verified_exports_ready }}</p>
+<small>No revenue or profit data connected; these are synthetic workflow metrics.</small>
+</section>
+{% endif %}
 <h1>My stores</h1><ul>{% for membership in memberships %}
 <li>{{ membership.store.name }} — {{ membership.role }}
 <a href="{% url 'submit' membership.store.id %}">Submit test catalog</a></li>
