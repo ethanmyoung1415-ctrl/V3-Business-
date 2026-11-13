@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
 from .forms import JobForm
 from .models import Store,Membership,CatalogJob,CatalogEvent
-from . import services
+from . import services,metrics
 import triage
 
 def accessible_store(user,store_id):
@@ -28,8 +28,10 @@ def dashboard(request):
         store_id__in=operator_store_ids,
         status__in=[CatalogJob.STATUS_FAILED,CatalogJob.STATUS_REVIEW]
     ).select_related("store").order_by("created_at")[:50]
+    scorecard=metrics.operator_scorecard(request.user)
     return render(request,"dashboard.html",{
         "memberships":memberships,"jobs":jobs,"operator_attention":attention,
+        "scorecard":scorecard,
     })
 
 @login_required
