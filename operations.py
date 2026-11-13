@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import engine
+import intake
 
 MAX_ATTEMPTS = 3
 LEASE_SECONDS = 120
@@ -49,30 +50,34 @@ def record(conn, work_id, kind, details):
                  (work_id,now().isoformat(),kind,json.dumps(details,sort_keys=True)))
 
 def enqueue(db, baseline, update):
+    """Copy source CSVs into local staging before queuing; never trust mutable originals."""
     setup(db)
-    b,u=Path(baseline).resolve(strict=True),Path(update).resolve(strict=True)
-    for path in (b,u):
-        if not path.is_file() or path.stat().st_size>15_000_000:
-            raise ValueError("input must be a regular file under 15MB")
-    bh,uh=engine.digest(b),engine.digest(u)
+    staged=intake.stage_pair(baseline,update,db)
+    (b,bh),(u,uh)=staged
     fingerprint=hashlib.sha256((bh+":"+uh).encode()).hexdigest()
     work_id=str(uuid.uuid4())
     ts=now().isoformat()
-    with sqlite3.connect(db) as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            conn.execute("""INSERT INTO work_queue
-                (id,fingerprint,baseline_path,update_path,baseline_sha256,update_sha256,status,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,'queued',?,?)""",
-                (work_id,fingerprint,str(b),str(u),bh,uh,ts,ts))
-            record(conn,work_id,"enqueued",{"fingerprint":fingerprint})
-            reused=False
-        except sqlite3.IntegrityError:
-            found=conn.execute("SELECT id FROM work_queue WHERE fingerprint=?",(fingerprint,)).fetchone()
-            if not found: raise
-            work_id=found[0]
-            reused=True
-    return {"work_id":work_id,"already_exists":reused}
+    try:
+        with sqlite3.connect(db) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            existing=conn.execute(
+                "SELECT id FROM work_queue WHERE fingerprint=?",(fingerprint,)).fetchone()
+            if existing:
+                work_id=existing[0]
+                reused=True
+            else:
+                conn.execute("""INSERT INTO work_queue
+                    (id,fingerprint,baseline_path,update_path,baseline_sha256,update_sha256,status,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,'queued',?,?)""",
+                    (work_id,fingerprint,str(b),str(u),bh,uh,ts,ts))
+                record(conn,work_id,"enqueued",{"fingerprint":fingerprint})
+                reused=False
+        if reused:
+            intake.cleanup_staged([b,u])
+        return {"work_id":work_id,"already_exists":reused}
+    except BaseException:
+        intake.cleanup_staged([b,u])
+        raise
 
 def claim(db):
     setup(db)
