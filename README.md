@@ -48,8 +48,9 @@ For each sample job, create a subdirectory containing `baseline.csv`, `update.cs
 | `qa.py` | Independent verification of final files |
 | `metrics.py` | Operator attention summary and failure counts |
 | `workspaces.py` | Separate databases for *simulated* customers |
-| `identity.py` | Tested password/session/role primitives, **not yet integrated with browser** |
+| `identity.py`, `secure_operations.py` | Password/session and tenant-scoped service authorization, **not yet integrated with browser** |
 | `backup.py` | Offline database-only backup and integrity-checked restore |
+| `supervisor.py` | Ranked operator exception briefings, no autonomous decisions |
 | `demo.py`, `benchmark.py` | Synthetic workflows and workload checks |
 
 ## Safety model
