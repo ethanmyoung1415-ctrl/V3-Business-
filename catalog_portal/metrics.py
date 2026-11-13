@@ -1,6 +1,6 @@
 """Tenant-authorized local operator management scorecard."""
 from django.db.models import Count
-from .models import Membership,CatalogJob,CatalogEvent
+from .models import Membership,CatalogJob,CatalogEvent,CustomerIssue
 
 def operator_scorecard(user):
     if not user.is_authenticated:
@@ -16,6 +16,8 @@ def operator_scorecard(user):
     failed=statuses.get(CatalogJob.STATUS_FAILED,0)
     review=statuses.get(CatalogJob.STATUS_REVIEW,0)
     ready=statuses.get(CatalogJob.STATUS_READY,0)
+    open_issues=CustomerIssue.objects.filter(
+        store_id__in=store_ids,status=CustomerIssue.STATUS_OPEN).count()
     return {
         "scope":"authorized_operator_stores_only",
         "jobs_total":total,
@@ -23,6 +25,7 @@ def operator_scorecard(user):
         "jobs_awaiting_review":review,
         "verified_exports_ready":ready,
         "operator_attention_jobs":failed+review,
+        "unresolved_customer_issues":open_issues,
         "status_counts":statuses,
         "event_counts":event_counts,
         "monthly_revenue":None,
