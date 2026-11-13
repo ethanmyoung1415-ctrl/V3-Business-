@@ -8,8 +8,17 @@
 {% if can_review and details %}
 <h2>Operator review</h2>
 <h3>Unresolved holds</h3>
-<ul>{% for hold in details.holds %}
-<li>{{ hold }}</li>{% empty %}<li>No holds.</li>{% endfor %}</ul>
+<p>Held supplier records are never applied. An operator may exclude one after
+verifying its invalid source should remain unchanged in the output.</p>
+<ul>{% for hold in details.holds_with_tokens %}
+<li>{{ hold.reason }} — SKU {{ hold.sku|default:"not provided" }}{% if hold.field %} / {{ hold.field }}{% endif %}
+<form method="post" action="{% url 'exclude_hold' job.id %}">
+{% csrf_token %}<input type="hidden" name="token" value="{{ hold.token }}">
+<label>Reason for excluding source row:
+<input name="reason" minlength="12" maxlength="300" required></label>
+<button type="submit">Exclude held row (do not apply)</button>
+</form></li>
+{% empty %}<li>No unresolved holds.</li>{% endfor %}</ul>
 <h3>Proposed changes</h3>
 <p>Optional: after reviewing the supplier evidence, an operator may batch-approve
 only small nonzero stock changes (at most five units and ten percent).
