@@ -63,6 +63,22 @@ def _safe_zip(path):
                 "querytables/","calcchain.xml","embeddings/","activex/"))
                 or lowered.endswith(".bin")):
             archive.close();raise ValueError("unsupported or external workbook feature")
+    # Reject all outbound relationships, even when a particular sheet does
+    # not reference them. Never fetch or silently accept remote workbook data.
+    for member in members:
+        if not member.filename.lower().endswith(".rels"):
+            continue
+        if member.file_size>2_000_000:
+            archive.close();raise ValueError("oversized workbook relationships")
+        try:
+            relationships=ET.fromstring(archive.read(member.filename))
+        except (ET.ParseError,zipfile.BadZipFile) as exc:
+            archive.close();raise ValueError("malformed workbook relationships") from exc
+        for link in relationships.findall(f"{{{PKG}}}Relationship"):
+            target=link.attrib.get("Target","").strip().lower()
+            if (link.attrib.get("TargetMode")=="External" or
+                    target.startswith(("http:","https:","ftp:","file:","mailto:"))):
+                archive.close();raise ValueError("external relationships are not supported")
     return archive
 
 def _read_xml(archive,name,limit=MAX_UNCOMPRESSED):
@@ -98,6 +114,8 @@ def _sheet_path(archive,sheet_name):
         matched=[s for s in sheets if s.attrib.get("name")==sheet_name]
         if len(matched)!=1:raise ValueError("requested worksheet not found")
         selected=matched[0]
+    if selected.attrib.get("state","visible")!="visible":
+        raise ValueError("hidden worksheets are not supported")
     relation=selected.attrib.get(f"{{{REL}}}id")
     if not relation:raise ValueError("worksheet relationship missing")
     relations=_read_xml(archive,"xl/_rels/workbook.xml.rels",2_000_000)
@@ -124,6 +142,11 @@ def _cell_text(cell,strings):
     if cell.find(f"{{{MAIN}}}f") is not None:
         raise ValueError("formula cell not supported")
     kind=cell.attrib.get("t","n")
+    # Excel encodes dates as plain numbers with a date formatting style.
+    # This restricted reader deliberately refuses styled numeric values
+    # rather than mistaking a date serial for stock or a unit price.
+    if kind=="n" and cell.attrib.get("s","0")!="0":
+        raise ValueError("styled numeric/date cells require CSV conversion")
     if kind in ("b","e","d"):
         raise ValueError("boolean, error and date cell types are unsupported")
     if kind=="inlineStr":
@@ -147,6 +170,12 @@ def _cell_text(cell,strings):
 def _rows(archive,sheet_name):
     strings=_shared_strings(archive)
     sheet=_read_xml(archive,_sheet_path(archive,sheet_name),32_000_000)
+    if (sheet.find(f"{{{MAIN}}}mergeCells") is not None or
+            sheet.find(f"{{{MAIN}}}tableParts") is not None):
+        raise ValueError("merged cells and linked tables are unsupported")
+    for column in sheet.findall(f".//{{{MAIN}}}cols/{{{MAIN}}}col"):
+        if column.attrib.get("hidden")=="1":
+            raise ValueError("hidden columns are not supported")
     if (sheet.find(f"{{{MAIN}}}hyperlinks") is not None or
             sheet.find(f"{{{MAIN}}}drawing") is not None):
         raise ValueError("linked or embedded sheet content not supported")
@@ -155,6 +184,8 @@ def _rows(archive,sheet_name):
     records=[]
     previous=0
     for row in data.findall(f"{{{MAIN}}}row"):
+        if row.attrib.get("hidden")=="1":
+            raise ValueError("hidden worksheet rows are not supported")
         index=int(row.attrib.get("r",str(previous+1)))
         if index<=previous or index>MAX_ROWS+1:
             raise ValueError("invalid or duplicate row reference")
