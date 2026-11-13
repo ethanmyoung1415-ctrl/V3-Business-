@@ -2,6 +2,16 @@
 <h1>Submission {{ job.id }}</h1>
 <p>Store: {{ job.store.name }}</p><p>Status: <strong>{{ job.status }}</strong></p>
 <p>Received: {{ job.created_at }}</p>
+{% if can_review and job.status == "failed" and job.error_code != "invalid_input" %}
+<form method="post" action="{% url 'retry_failed' job.id %}">
+{% csrf_token %}
+<p>Processing failed. A retry requires investigating the failure and confirming
+the original source files have not changed.</p>
+<label>Reason for retry <input type="text" name="reason" minlength="12"
+maxlength="140" required></label>
+<button type="submit">Request operator-reviewed retry</button>
+</form>
+{% endif %}
 {% if job.status == "ready" %}
 <p><a href="{% url 'download' job.id %}">Download independently verified catalog CSV</a></p>
 <p><a href="{% url 'download_report' job.id %}">Download verified change report (JSON)</a></p>
