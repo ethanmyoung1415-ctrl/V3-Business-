@@ -73,6 +73,17 @@ def job_page(db,job,csrf,notice=''):
     return document(f'<p><a href="/">← All jobs</a></p>{export_html}<section><h2>Job {esc(job[:12])}</h2><p>{esc(notice)}</p><h3>Unresolved holds ({len(r["holds"])})</h3><ul>{holds}</ul><h3>Proposed changes</h3><table><tr><th>SKU</th><th>Field</th><th>Old</th><th>Proposed</th><th>Status</th><th>Reason</th><th>Decision</th></tr>{"".join(rows)}</table></section>')
 def make_handler(db,csrf,actor):
     class Handler(BaseHTTPRequestHandler):
+        def _trusted_host(self):
+            host=self.headers.get('Host','')
+            # Reject DNS rebinding and requests routed via non-loopback hostnames.
+            return host in ('localhost','127.0.0.1',
+                            f'localhost:{self.server.server_port}',
+                            f'127.0.0.1:{self.server.server_port}')
+        def _trusted_origin(self):
+            origin=self.headers.get('Origin')
+            return not origin or origin in (
+                f'http://localhost:{self.server.server_port}',
+                f'http://127.0.0.1:{self.server.server_port}')
         def answer(self,body,status=200):
             b=body.encode('utf-8')
             self.send_response(status)
@@ -84,6 +95,7 @@ def make_handler(db,csrf,actor):
             self.send_header('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
             self.end_headers();self.wfile.write(b)
         def do_GET(self):
+            if not self._trusted_host():return self.send_error(403)
             path=urlparse(self.path).path
             try:
                 if path=='/':self.answer(overview(db))
@@ -106,6 +118,7 @@ def make_handler(db,csrf,actor):
                 else:self.send_error(404)
             except (ValueError,sqlite3.Error) as ex:self.answer(document(f'<section>{esc(ex)}</section>'),400)
         def do_POST(self):
+            if not self._trusted_host() or not self._trusted_origin():return self.send_error(403)
             route=urlparse(self.path).path
             if route not in ('/decide','/export'):return self.send_error(404)
             try:
