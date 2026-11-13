@@ -4,7 +4,7 @@ import io
 from django import forms
 import engine
 import mapping as mapper
-from .models import CatalogJob,SupplierProfile
+from .models import CatalogJob,SupplierProfile,CatalogConfirmation
 
 LIMIT=15_000_000
 ALLOWED=set(engine.FIELDS)
@@ -70,6 +70,9 @@ class JobForm(forms.ModelForm):
         queryset=SupplierProfile.objects.none(),required=False,
         empty_label="Standard V3 columns (no mapping)",
         help_text="Choose an approved supplier header mapping for this store.")
+    use_confirmed_baseline=forms.BooleanField(
+        required=False,label="Reuse last customer-confirmed catalog",
+        help_text="Only use after confirming the previous verified file was imported.")
     class Meta:
         model=CatalogJob
         fields=["baseline","supplier_update"]
@@ -77,14 +80,27 @@ class JobForm(forms.ModelForm):
         if store is None:
             raise ValueError("a store context is required")
         super().__init__(*args,**kwargs)
+        self.store=store
+        self.fields["baseline"].required=False
         self.fields["supplier_profile"].queryset=SupplierProfile.objects.filter(
             store=store,active=True)
     def clean_baseline(self):
-        return validate_csv(self.cleaned_data["baseline"],baseline=True)
+        upload=self.cleaned_data.get("baseline")
+        return validate_csv(upload,baseline=True) if upload else None
     def clean(self):
         data=super().clean()
         update=data.get("supplier_update")
         profile=data.get("supplier_profile")
+        use_prior=bool(data.get("use_confirmed_baseline"))
+        baseline=data.get("baseline")
+        if use_prior and baseline:
+            self.add_error("baseline","Choose either a baseline upload or a confirmed version, not both.")
+        elif not use_prior and not baseline:
+            self.add_error("baseline","Upload a baseline or select a confirmed catalog.")
+        elif use_prior and not CatalogConfirmation.objects.filter(
+                store=self.store,job__status=CatalogJob.STATUS_READY).exists():
+            self.add_error("use_confirmed_baseline",
+                           "No confirmed imported catalog is available for this store.")
         if update is not None:
             try:
                 validate_csv(update,mapping=profile.mapping if profile else None)
