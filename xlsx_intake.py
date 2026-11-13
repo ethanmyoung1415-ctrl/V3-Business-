@@ -191,6 +191,7 @@ def _rows(archive,sheet_name):
             raise ValueError("invalid or duplicate row reference")
         previous=index
         values={}
+        cell_types={}
         for cell in row.findall(f"{{{MAIN}}}c"):
             ref=cell.attrib.get("r","")
             match=CELL_REF.fullmatch(ref)
@@ -200,7 +201,8 @@ def _rows(archive,sheet_name):
             if column>MAX_COLUMNS or column in values:
                 raise ValueError("unexpected or duplicate worksheet column")
             values[column]=_cell_text(cell,strings)
-        if values:records.append((index,values))
+            cell_types[column]=cell.attrib.get("t","n")
+        if values:records.append((index,values,cell_types))
         if len(records)>MAX_ROWS+1:raise ValueError("too many rows")
     if not records or records[0][0]!=1:
         raise ValueError("first worksheet row must contain headers")
@@ -212,11 +214,16 @@ def _rows(archive,sheet_name):
     names=[headers[i].strip().lower() for i in range(1,max_col+1)]
     if len(names)!=len(set(names)) or not set(names)<=FIELDS or "sku" not in names:
         raise ValueError("unsupported or duplicate headers")
+    sku_column=names.index("sku")+1
     converted=[]
-    for index,cells in records[1:]:
+    for index,cells,types in records[1:]:
         if index<=1:continue
         if any(column>max_col for column in cells):
             raise ValueError("data found outside header columns")
+        # Numeric identifiers can lose leading zeros before V3 receives them.
+        # A named SKU must be stored as text in the workbook.
+        if sku_column in cells and types.get(sku_column)=="n":
+            raise ValueError("SKU cells must be stored as text, not numbers")
         converted.append({name:cells.get(column,"")
                           for column,name in enumerate(names,1)})
     if not converted:raise ValueError("worksheet has no data")
