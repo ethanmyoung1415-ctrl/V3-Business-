@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block content %}
+<h1>Upload sample catalog for {{ store.name }}</h1>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+{{ form.as_p }}<button type="submit">Submit sample files</button></form>
+<p>Use fictional CSV data only; do not upload customer information.</p>
+{% endblock %}
