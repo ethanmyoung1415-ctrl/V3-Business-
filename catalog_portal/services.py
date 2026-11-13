@@ -75,10 +75,15 @@ def process_received(job_id):
         return {"processed":True,"status":"review","job_id":str(job.id),
                 "engine_job_id":result["job_id"],
                 "holds":len(result["holds"]),"changes":result["changes"]}
-    except Exception:
-        # Do not show file contents or underlying exception details to customers.
+    except Exception as exc:
+        # Public errors use opaque categories: never echo supplier contents.
         job.status=CatalogJob.STATUS_FAILED
-        job.error_code="processing_error"
+        if isinstance(exc,ValueError):
+            job.error_code="invalid_input"
+        elif isinstance(exc,OSError):
+            job.error_code="storage_failure"
+        else:
+            job.error_code="processing_error"
         job.save(update_fields=["status","error_code","updated_at"])
         CatalogEvent.objects.create(job=job,kind="failed",detail="processing_error")
         raise
@@ -92,6 +97,30 @@ def process_received_batch(max_jobs=10):
         try:results.append(process_received(job_id))
         except Exception:results.append({"job_id":str(job_id),"processed":False,"reason":"processing_error"})
     return results
+
+def request_retry(job,user,reason):
+    """Operator-approved local recovery for a stopped job, never a blind retry."""
+    require_operator(user,job)
+    if not isinstance(reason,str) or len(reason.strip())<12:
+        raise ValueError("retry investigation reason required")
+    job.refresh_from_db()
+    if job.status!=CatalogJob.STATUS_FAILED or job.error_code not in (
+        "storage_failure","processing_error","worker_stalled"):
+        raise ValueError("failure requires corrected source files, not a retry")
+    if (not job.baseline_sha256 or not job.supplier_sha256 or
+            engine.digest(job.baseline.path)!=job.baseline_sha256 or
+            engine.digest(job.supplier_update.path)!=job.supplier_sha256):
+        raise ValueError("original submission changed; cannot retry")
+    with transaction.atomic():
+        updated=CatalogJob.objects.filter(
+            pk=job.pk,status=CatalogJob.STATUS_FAILED,
+            error_code__in=("storage_failure","processing_error","worker_stalled")
+        ).update(status=CatalogJob.STATUS_RECEIVED,error_code="")
+        if updated!=1:raise ValueError("retry was already requested")
+        CatalogEvent.objects.create(
+            job=job,actor=user,kind="retry_requested",
+            detail="retry_investigated:"+reason.strip()[:140])
+    return {"job_id":str(job.pk),"queued":True}
 
 def review(job,user):
     require_operator(user,job)
