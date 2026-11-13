@@ -15,6 +15,11 @@
 - Synthetic SQLite database and workspace archives, integrity-checked restore, dry-run-first old file cleanup, and audit/operational scorecards
 - 5,000-SKU synthetic benchmark, end-to-end tests, cross-store access regression cases, public repository file/secret guard
 - Marketing concept and proposed pilot/business processes (not publicly hosted; not accepting signup/payment)
+- Independent internal audit reconciliation across decisions and held-row exclusions, released-file SHA-256 pinning, a manual prior-snapshot recovery generator, and optional separately keyed HMAC receipts
+- Read-only, disabled-by-default automation eligibility simulations that can quantify possible operator workload reduction without approving anything
+- Local-only, operator-issued, expiring single-use synthetic customer invitations; **not** production invitation identity verification
+- A combined synthetic preflight command that always returns production NO-GO until authorized release gates are met
+
 
 ## Prerequisites for a real service
 
@@ -37,7 +42,7 @@
 - Local workspace archives are **unencrypted**, exclude the separate portal identity database and original uploads, and are NOT complete disaster recovery.
 - A customer-confirmed import means only that a logged-in user asserted they imported the verified CSV. V3 has **no access to or verification of the live store**.
 - Model advice is not a decision maker. A future provider cannot approve or execute operational changes, read secrets, bill customers, or send messages.
-- Routine changes still require human decision or a narrow explicitly operator-triggered batch. Fully unattended execution is **not proven**.
+- Routine changes still require human decision or a narrow explicitly operator-triggered batch. The new autonomy simulation never executes changes. Fully unattended execution is **not proven**.
 - Prices are draft ideas, not validated market rates; V3 has no customer subscriptions or revenue.
 - Consumer-grade or sample-scale test success is not production certification.
 
