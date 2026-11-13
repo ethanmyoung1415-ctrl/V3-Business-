@@ -34,5 +34,8 @@
 <p>Export is blocked until every decision is resolved and there are no holds.</p>
 {% endif %}
 <p>Source uploads are private and are not served directly to browsers.</p>
+<h2>Audit history</h2><ul>{% for event in events %}
+<li>{{ event.created_at }} — {{ event.kind }}</li>
+{% empty %}<li>No events yet.</li>{% endfor %}</ul>
 <a href="{% url 'dashboard' %}">Back to my stores</a>
 {% endblock %}
