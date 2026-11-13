@@ -55,7 +55,8 @@ def process_received(job_id):
             converted=supplier_input.parent/(str(uuid.uuid4())+"-normalized.csv")
             mapper.normalize_csv(supplier_input,converted,job.mapping_snapshot)
             supplier_input=converted
-        result=engine.ingest(database,snapshots[0][0],supplier_input)
+        result=engine.ingest(database,snapshots[0][0],supplier_input,
+                             job_id=str(job.pk))
         job.engine_job_id=uuid.UUID(result["job_id"])
         job.status=CatalogJob.STATUS_REVIEW
         job.error_code=""
