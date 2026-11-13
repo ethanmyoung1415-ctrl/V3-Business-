@@ -89,7 +89,7 @@ class CatalogEvent(models.Model):
     TYPES=[
         ("submitted","Submitted"),("processed","Processed"),
         ("failed","Failed"),("approved","Approved"),("rejected","Rejected"),
-        ("exported","Exported"),("downloaded","Downloaded"),("source_purged","Source purged"),("hold_excluded","Hold excluded"),("advisory","Advisory"),("retry_requested","Retry requested"),
+        ("exported","Exported"),("downloaded","Downloaded"),("source_purged","Source purged"),("hold_excluded","Hold excluded"),("advisory","Advisory"),("retry_requested","Retry requested"),("import_confirmed","Import confirmed"),
     ]
     job=models.ForeignKey(CatalogJob,on_delete=models.CASCADE,related_name="portal_events")
     actor=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,
