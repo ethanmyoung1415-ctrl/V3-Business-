@@ -75,6 +75,19 @@ The project uses three automated GitHub Actions workflows:
 See [Automation Simulation](docs/AUTOMATION_SIMULATION.md), [Manual Recovery](docs/MANUAL_RECOVERY.md),
 [Release Receipts](docs/RELEASE_RECEIPTS.md), and [Local Invitations](docs/LOCAL_INVITATIONS.md).
 
+## Restricted Excel supplier intake
+
+The local portal can now accept standard CSV or a deliberately limited,
+single-visible-sheet `.xlsx` workbook. Formula cells, macros, links, hidden/
+merged data, styled numeric/date cells, ambiguous multiple sheets, and numeric
+SKU cells are rejected rather than guessed. Original uploaded workbook bytes
+remain private and hashed; the comparison engine receives only a separately
+validated CSV. Custom supplier-header mappings currently require CSV.
+
+See [XLSX Intake](docs/XLSX_INTAKE.md). This is **not** support for arbitrary
+Excel files, and real customer workbooks remain prohibited until security
+review and controlled pilots.
+
 ## Critical remaining commercial work
 See [Production Gate](docs/PRODUCTION_GATE.md), [Threat Model](docs/THREAT_MODEL.md), [Hosting Plan](docs/HOSTING_PLAN.md), [AI Evaluation Plan](docs/AI_EVALUATION_PLAN.md) and [Preproduction Handoff](docs/PREPRODUCTION_HANDOFF.md).
 
