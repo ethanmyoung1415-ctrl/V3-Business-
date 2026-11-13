@@ -17,6 +17,8 @@ urlpatterns=[
     path("jobs/<uuid:job_id>/exclude-hold/",views.exclude_hold,name="exclude_hold"),
     path("jobs/<uuid:job_id>/retry/",views.retry_failed,name="retry_failed"),
     path("jobs/<uuid:job_id>/confirm-import/",views.confirm_store_import,name="confirm_import"),
+    path("jobs/<uuid:job_id>/issue/",views.open_quality_issue,name="open_quality_issue"),
+    path("issues/<uuid:issue_id>/resolve/",views.resolve_quality_issue,name="resolve_quality_issue"),
     path("jobs/<uuid:job_id>/download/",views.download,name="download"),
     path("jobs/<uuid:job_id>/report/",views.download_report,name="download_report"),
 ]
