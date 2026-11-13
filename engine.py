@@ -109,6 +109,55 @@ def decide(db,change,decision,actor,reason):
         c.execute("UPDATE changes SET status=? WHERE id=?",(decision,change))
         log(c,row[0],"decision",{"change":change,"decision":decision,"actor":actor,"reason":reason})
     return {"change":change,"decision":decision}
+def eligible_low_risk_stock(change):
+    """Conservative eligibility for a human-reviewed batch decision.
+
+    No price, title, zero-stock, zero-origin, high-volume or large percentage
+    stock adjustments. This only proposes what can be batch-approved.
+    """
+    if change["field"]!="stock" or change["status"]!="pending":
+        return False
+    try:
+        previous=int(change["old"])
+        proposed=int(change["new"])
+    except (ValueError,TypeError):
+        return False
+    if previous<10 or proposed<=0 or previous==proposed:
+        return False
+    delta=abs(proposed-previous)
+    return delta<=5 and delta*10<=previous
+
+def approve_low_risk_stock_batch(db,job,actor,reason):
+    """One explicit human approval for small stock adjustments.
+
+    This is never autonomous. Approval is all-or-nothing in SQLite and
+    recorded per change. Holds block bulk approval.
+    """
+    if not actor or not actor.strip() or not reason or len(reason.strip())<8:
+        raise ValueError("actor and meaningful reason required")
+    setup(db)
+    with sqlite3.connect(db,timeout=30) as c:
+        c.row_factory=sqlite3.Row
+        c.execute("BEGIN IMMEDIATE")
+        row=c.execute("SELECT status,holds FROM jobs WHERE id=?",(job,)).fetchone()
+        if not row or row["status"]!="review":
+            raise ValueError("job not in review")
+        if json.loads(row["holds"]):
+            raise ValueError("unresolved holds prohibit batch approval")
+        changes=[dict(x) for x in c.execute(
+            "SELECT * FROM changes WHERE job=? AND status='pending'",(job,))]
+        eligible=[x for x in changes if eligible_low_risk_stock(x)]
+        if not eligible:
+            raise ValueError("no eligible small stock changes")
+        for item in eligible:
+            c.execute("UPDATE changes SET status='approved' WHERE id=? AND status='pending'",
+                      (item["id"],))
+            log(c,job,"decision",{"change":item["id"],"decision":"approved",
+                                  "actor":actor,"reason":reason.strip(),
+                                  "method":"explicit_human_batch"})
+        return {"job_id":job,"approved_count":len(eligible),
+                "remaining_pending":len(changes)-len(eligible)}
+
 def export(db,job,path):
     """Export a reviewed snapshot; fail closed and remove partial outputs on errors."""
     setup(db)
