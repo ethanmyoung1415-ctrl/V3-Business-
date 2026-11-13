@@ -1,15 +1,22 @@
 from django.contrib.auth.decorators import login_required
-from django.http import Http404
+from django.http import Http404,FileResponse
 from django.shortcuts import get_object_or_404,redirect,render
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods,require_POST
 from .forms import JobForm
 from .models import Store,Membership,CatalogJob
+from . import services
+import triage
 
 def accessible_store(user,store_id):
     store=get_object_or_404(Store,pk=store_id,active=True)
     if not Membership.objects.filter(user=user,store=store).exists():
         raise Http404()
     return store
+
+def accessible_job(user,job_id):
+    job=get_object_or_404(CatalogJob.objects.select_related("store"),pk=job_id)
+    accessible_store(user,job.store_id)
+    return job
 
 @login_required
 def dashboard(request):
@@ -34,6 +41,43 @@ def submit(request,store_id):
 
 @login_required
 def job_detail(request,job_id):
-    job=get_object_or_404(CatalogJob.objects.select_related("store"),pk=job_id)
-    accessible_store(request.user,job.store_id)
-    return render(request,"job.html",{"job":job})
+    job=accessible_job(request.user,job_id)
+    can_review=Membership.objects.filter(
+        user=request.user,store=job.store,role=Membership.ROLE_OPERATOR).exists()
+    details=None
+    if can_review and job.status==CatalogJob.STATUS_REVIEW:
+        details=services.review(job,request.user)
+        for change in details["changes"]:
+            change["advice"]=triage.assess_change(change)
+    return render(request,"job.html",{"job":job,"details":details,
+                  "can_review":can_review})
+
+@login_required
+@require_POST
+def decision(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        services.decide(job,request.user,request.POST.get("change_id",""),
+                        request.POST.get("decision",""),
+                        request.POST.get("reason",""))
+    except (PermissionError,ValueError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.id)
+
+@login_required
+@require_POST
+def export_job(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:services.prepare_export(job,request.user)
+    except (PermissionError,ValueError):raise Http404()
+    return redirect("job_detail",job_id=job.id)
+
+@login_required
+def download(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:path=services.verified_download_path(job)
+    except (ValueError,OSError):raise Http404()
+    response=FileResponse(path.open("rb"),as_attachment=True,filename=f"{job.id}.csv")
+    response["Cache-Control"]="no-store"
+    response["X-Content-Type-Options"]="nosniff"
+    return response
