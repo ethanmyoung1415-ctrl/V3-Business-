@@ -16,7 +16,7 @@ def create(job,kind,audience):
                      "export_ready":"ready"}[kind]
     if job.status!=required_status:
         raise ValueError("notice must match a confirmed job state")
-    key=f"{job.pk}:{kind}:{audience}"
+    key=f"{job.pk}:{kind}:{audience}:{job.updated_at.isoformat()}"
     notice,_=PortalNotice.objects.get_or_create(
         dedupe_key=key,defaults={
             "store":job.store,"job":job,"kind":kind,"audience":audience,
@@ -32,10 +32,17 @@ def visible_to(user):
     member_ids=memberships.values_list("store_id",flat=True)
     operator_ids=memberships.filter(role=Membership.ROLE_OPERATOR).values_list(
         "store_id",flat=True)
-    return PortalNotice.objects.filter(
+    valid_states=(
+        Q(kind="needs_review",job__status="review") |
+        Q(kind="job_failed",job__status="failed") |
+        Q(kind="export_ready",job__status="ready")
+    )
+    permitted=(
         Q(store_id__in=member_ids,audience="customer") |
         Q(store_id__in=operator_ids,audience="operator")
-    ).exclude(read_receipts__user=user).select_related("store","job").order_by("-created_at")
+    )
+    return PortalNotice.objects.filter(valid_states & permitted).exclude(
+        read_receipts__user=user).select_related("store","job").order_by("-created_at")
 
 def mark_read(user,notice_id):
     notice=visible_to(user).filter(pk=notice_id).first()
