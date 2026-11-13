@@ -2,10 +2,11 @@ import hashlib
 from django.contrib.auth.decorators import login_required
 from django.core.files import File
 from django.http import Http404,FileResponse,HttpResponse
+from django.db import IntegrityError
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
-from .forms import JobForm
-from .models import Store,Membership,CatalogJob,CatalogEvent
+from .forms import JobForm,SupplierProfileCreateForm
+from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile
 from . import services,metrics,notices
 import triage
 import engine
@@ -56,6 +57,30 @@ def mark_notice_read(request,notice_id):
     except PermissionError:
         raise Http404()
     return redirect("dashboard")
+
+@login_required
+@require_http_methods(["GET","POST"])
+def configure_supplier(request,store_id):
+    store=accessible_store(request.user,store_id)
+    if not Membership.objects.filter(
+        user=request.user,store=store,role=Membership.ROLE_OPERATOR).exists():
+        raise Http404()
+    form=SupplierProfileCreateForm(request.POST or None)
+    if request.method=="POST" and form.is_valid():
+        name=form.cleaned_data["name"].strip()
+        mapping=form.cleaned_data["mapping_json"]
+        if SupplierProfile.objects.filter(store=store,name=name).exists():
+            form.add_error("name","A profile with this name already exists for this store.")
+        else:
+            try:
+                SupplierProfile.objects.create(store=store,name=name,mapping=mapping)
+            except IntegrityError:
+                form.add_error("name","Supplier profile already exists.")
+            else:
+                return redirect("dashboard")
+    profiles=SupplierProfile.objects.filter(store=store).order_by("name")
+    return render(request,"supplier_profiles.html",
+                  {"store":store,"profiles":profiles,"form":form})
 
 @login_required
 @require_http_methods(["GET","POST"])
