@@ -27,6 +27,24 @@ class Membership(models.Model):
         constraints=[models.UniqueConstraint(fields=("user","store"),name="unique_user_store_membership")]
     def __str__(self):return f"{self.user_id} in {self.store_id}"
 
+class SupplierProfile(models.Model):
+    """Operator-controlled exact supplier header mapping for one store."""
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    store=models.ForeignKey(Store,on_delete=models.CASCADE,related_name="supplier_profiles")
+    name=models.CharField(max_length=120)
+    mapping=models.JSONField(default=dict)
+    active=models.BooleanField(default=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=("store","name"),
+                                              name="unique_supplier_profile_store_name")]
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        import mapping as mapper
+        try:mapper.validate_mapping(self.mapping)
+        except ValueError as exc:raise ValidationError({"mapping":str(exc)})
+    def __str__(self):return self.name
+
 class CatalogJob(models.Model):
     STATUS_RECEIVED="received"
     STATUS_PROCESSING="processing"
@@ -46,6 +64,7 @@ class CatalogJob(models.Model):
     error_code=models.CharField(max_length=60,blank=True)
     engine_job_id=models.UUIDField(null=True,blank=True,editable=False)
     export_sha256=models.CharField(max_length=64,blank=True,editable=False)
+    mapping_snapshot=models.JSONField(default=dict,blank=True,editable=False)
     class Meta:
         indexes=[models.Index(fields=("store","created_at"),name="v3job_store_created_idx")]
 
