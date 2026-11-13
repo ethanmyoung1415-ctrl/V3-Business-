@@ -1,43 +1,53 @@
-# V3 Production Launch Gate
+# V3 production release gate
 
-**Release decision: NOT APPROVED for paying customers or live data.**
+**Decision: NO-GO.** The current software is a localhost-only, synthetic-data preproduction demonstration. GitHub Actions passing does **not** authorize real customer files, cloud exposure, payment collection, or store API writes.
 
-The repository now contains a working local change-control engine and a separate Django preproduction portal. Both test suites run through GitHub Actions. Passing tests is not a production security certification.
+## Built and tested in the preproduction project
 
-## Implemented and test-covered
-- CSV validation, conservative holds, duplicate detection, valid zero-stock processing
-- Immutable local staging and file-hash checks
-- Local queued processing, bounded retries, fail-closed stale-worker handling
-- Read-only rule-based exception triage, evidence-based operator briefing
-- Operator approval with required reason and audit events
-- Independent QA gating and integrity-verified CSV export
-- Synthetic tenant-specific workspaces and account-scoped service authorization
-- Django login, session/CSRF checks, per-store membership checks, private local uploads
-- Separate customer submission and operator review interface, local polling command
-- Tenant-specific engine processing and authorized customer download
-- Locally verified SQLite backup/restore (database only; not full disaster recovery)
-- Synthetic end-to-end and regression tests in supported Python versions
+- Deterministic catalog comparison (SKU, title, stock, price), decimal normalization, source-row holds, duplicate protection and valid zero-stock processing
+- Immutable sample intake snapshots, submission/staging file hashes, explicit tenant-scoped supplier header mappings and frozen per-job mapping versions
+- Persistent local queue/worker, stable processing IDs, safe operator-reviewed retries, stale-worker detection and emergency stop
+- Read-only deterministic triage, persisted advisory notes and a separately gated **optional** AI provider adapter. **No provider credentials, calls or customer data are connected.**
+- Audited individual approvals, carefully restricted human batch stock review, and explicitly justified held-row exclusions that never apply the invalid value
+- Independent export QA, duplicate export prevention, integrity checks at download, and a deterministic JSON customer change report
+- Local Django sessions, tenant membership checks, CSRF protections, local login throttling, no-store headers and loopback-only execution
+- Local per-store notifications and read receipts, plus customer-stated imported catalog confirmation and verified baseline lineage for recurring updates
+- Synthetic SQLite database and workspace archives, integrity-checked restore, dry-run-first old file cleanup, and audit/operational scorecards
+- 5,000-SKU synthetic benchmark, end-to-end tests, cross-store access regression cases, public repository file/secret guard
+- Marketing concept and proposed pilot/business processes (not publicly hosted; not accepting signup/payment)
 
-## Hard blockers before launch
-1. **Authorized commercial accounts:** A responsible adult/legal signatory may be required to open/operate banking, hosting, payment and provider accounts. Obtain permission and choose business ownership and tax treatment.
-2. **Production identity:** Approved account creation/invites, MFA or equivalent safeguards, rate limiting, secure account recovery, access revocation, session/device security and user audits.
-3. **Production data protection:** TLS, encrypted file storage, tenant isolation at database/object-store/worker layers, signed links, malware scanning, retention/deletion and appropriate customer data agreements.
-4. **Reliable infrastructure:** Production database and task queue, monitoring/alerts, idempotent processing, graceful shutdown, retry/dead-letter policy, fault injection and restore drills covering files and databases.
-5. **External integrations:** Any Shopify/store access requires least-privilege authorization and explicit customer approvals. No live-store write may be enabled before independent testing and scope approval.
-6. **Optional AI investigator:** A paid/provider-authorized AI integration, model evaluation, privacy terms and a strict no-action boundary. Model advice cannot approve changes.
-7. **Business operation:** Contracts, pricing/limits, payment processing, refunds/cancellations, support/security incident workflow, liability arrangements and customer onboarding.
-8. **Measured performance:** Accuracy and false alarm rates on representative datasets, vulnerability assessment, load testing, availability evidence and user-acceptance testing.
-9. **Privacy/security review:** Independent technical review before handling real customer data and documented owner acceptance.
+## Prerequisites for a real service
 
-## Current limitations
-- The Django portal runs locally with SQLite. Its authenticated pages are a demonstration, not a hardened hosted service.
-- The local operational queue and portal worker are not a production multi-worker system.
-- All changes still require an operator approval; exception-only supervision and safe low-risk auto-approval under customer policy are not yet implemented.
-- No real billing, customer communications, Shopify integration, provider-connected AI, security monitoring or autonomous customer onboarding.
-- Database backup does not include the uploaded originals, staged files or exports.
-- This repository is public. Keep client files, credentials and confidential business information out of version control.
+| Gate | Status | Required evidence |
+|---|---|---|
+| Adult/business authorization | Pending | Who may own/sign accounts, contracts, banking and payment relationships; approved spending limit |
+| Hosting & domain | Pending | Authorized provider, region, account and secure infrastructure |
+| Customer identity | Pending | Production MFA/invitations/recovery, rate limiting, session revocation and proper tenant isolation |
+| Data protection | Pending | Encryption at rest/transit, private object storage, deletion/retention, backups, malware checks and storage permissions |
+| Job reliability | Pending | Durable production queue, worker fencing/leases, observability, alerts, restored backups and load/failure drills |
+| External AI | Disabled | Approved provider, synthetic evaluation, privacy terms, budgets, read-only permissions and strict fallback |
+| Store integration | Absent | Explicit customer authorization, least-privilege scopes, staging, rollback and independent safeguards |
+| Billing | Absent | Eligible legal signatory, merchant processor and account authorization, refunds/cancellation process |
+| Commercial validation | Not started | Evidence from qualified customer interviews, permitted pilots, measured costs and renewed demand |
+| Independent security review | Pending | Penetration testing, threat-model review, access-control verification and written go/no-go |
 
-## Go/no-go rule
-No real customer data, payments or external store actions until all relevant launch gates have documented evidence and are explicitly accepted by the business's authorized adult/legal signatory and technical operator. Do not remove tests or bypass safeguards to ship faster.
+## Current security and scope limitations
+- **Public repository**: never push customer data or real credentials; the CI repository guard is only a first layer, not professional secret scanning.
+- Django is locked to loopback and uses a development SQLite database; **it must not be exposed through a tunnel, public web server or production domain**.
+- Local workspace archives are **unencrypted**, exclude the separate portal identity database and original uploads, and are NOT complete disaster recovery.
+- A customer-confirmed import means only that a logged-in user asserted they imported the verified CSV. V3 has **no access to or verification of the live store**.
+- Model advice is not a decision maker. A future provider cannot approve or execute operational changes, read secrets, bill customers, or send messages.
+- Routine changes still require human decision or a narrow explicitly operator-triggered batch. Fully unattended execution is **not proven**.
+- Prices are draft ideas, not validated market rates; V3 has no customer subscriptions or revenue.
+- Consumer-grade or sample-scale test success is not production certification.
 
-See [PORTAL_DEMO.md](PORTAL_DEMO.md) and [OPERATOR_PLAYBOOK.md](OPERATOR_PLAYBOOK.md).
+## Required next release sequence
+1. Confirm authorized business signatory, budget and account ownership with parent/qualified adviser if appropriate.
+2. Independent technical/security review of [Threat Model](THREAT_MODEL.md) and [Hosting Plan](HOSTING_PLAN.md).
+3. Provision staging using authorized accounts **only with synthetic data**; prove deployment, storage permissions, worker isolation, backup restoration and rollback.
+4. Optionally connect external AI only after approval and [Evaluation Plan](AI_EVALUATION_PLAN.md), preserving read-only authority.
+5. Measure performance, operational labor, robustness and exact false-positive/false-negative counts on representative fixtures.
+6. Negotiate/approve contracts and data terms before any consented real-data pilot.
+7. Enable payment processing, real store connections, or subscriptions **only after separate authorization and acceptance**.
+
+**No-go stays in effect until each relevant safeguard has auditable acceptance evidence and an authorized person approves release.**
