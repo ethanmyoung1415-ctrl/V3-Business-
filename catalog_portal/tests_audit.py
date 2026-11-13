@@ -52,7 +52,7 @@ class PortalAuditingTests(TestCase):
         b"".join(response.streaming_content)
         self.assertEqual(
             list(job.portal_events.order_by("created_at","pk").values_list("kind",flat=True)),
-            ["submitted","processed","approved","exported","downloaded"]
+            ["submitted","processed","advisory","approved","exported","downloaded"]
         )
         self.assertNotIn("Sample",str(list(job.portal_events.values_list("detail",flat=True))))
     def test_attention_only_for_operator_membership(self):
