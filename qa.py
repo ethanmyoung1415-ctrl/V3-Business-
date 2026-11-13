@@ -9,6 +9,10 @@ from pathlib import Path
 FIELDS=("sku","title","price","stock")
 
 def verify(db,job,output):
+    import audit_integrity
+    audit_result=audit_integrity.verify_job(db,job)
+    if not audit_result["passed"]:
+        raise ValueError("independent audit reconciliation failed")
     path=Path(output)
     if not path.is_file():raise ValueError("export file not found")
     with sqlite3.connect(db) as conn:
@@ -69,7 +73,8 @@ def verify(db,job,output):
 
     return {"passed":not mismatches,"job_id":job,"expected_rows":len(expected),
             "actual_rows":len(seen),"sha256":sha,"mismatches":mismatches[:100],
-            "truncated":len(mismatches)>100}
+            "truncated":len(mismatches)>100,
+            "audit_reconciled":True}
 
 def main():
     p=argparse.ArgumentParser(description="Independent audit of approved V3 CSV output")
