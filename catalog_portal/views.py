@@ -39,12 +39,14 @@ def dashboard(request):
 @require_http_methods(["GET","POST"])
 def submit(request,store_id):
     store=accessible_store(request.user,store_id)
-    form=JobForm(request.POST or None,request.FILES or None)
+    form=JobForm(request.POST or None,request.FILES or None,store=store)
     if request.method=="POST" and form.is_valid():
         job=form.save(commit=False)
         job.store=store
         job.submitted_by=request.user
         job.status=CatalogJob.STATUS_RECEIVED
+        profile=form.cleaned_data.get("supplier_profile")
+        job.mapping_snapshot=dict(profile.mapping) if profile else {}
         job.save()
         CatalogEvent.objects.create(job=job,actor=request.user,kind="submitted",
                                     detail="CSV files accepted")
