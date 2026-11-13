@@ -2,6 +2,7 @@
 import signal
 import time
 from django.core.management.base import BaseCommand,CommandError
+from django.core.management import call_command
 from catalog_portal.services import process_received_batch
 
 class Command(BaseCommand):
@@ -22,6 +23,9 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT,stop_requested)
         signal.signal(signal.SIGTERM,stop_requested)
         while not stop:
+            # Crash recovery does not retry or approve anything; stranded jobs
+            # become visible as failures for operator investigation.
+            call_command("reconcile_stale_jobs", "--minutes", "30", stdout=self.stdout)
             result=process_received_batch(limit)
             if result:
                 self.stdout.write(f"Processed {len(result)} submission(s)")
