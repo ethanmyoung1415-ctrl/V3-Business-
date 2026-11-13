@@ -1,3 +1,4 @@
+import hashlib
 from django.contrib.auth.decorators import login_required
 from django.http import Http404,FileResponse,HttpResponse
 from django.shortcuts import get_object_or_404,redirect,render
@@ -9,6 +10,14 @@ import triage
 import engine
 import reporting
 import advice_jobs
+
+def submitted_hash(upload):
+    """Fingerprint an upload before saving it; restore its cursor for Django storage."""
+    digest=hashlib.sha256()
+    for chunk in upload.chunks():
+        digest.update(chunk)
+    upload.seek(0)
+    return digest.hexdigest()
 
 def accessible_store(user,store_id):
     store=get_object_or_404(Store,pk=store_id,active=True)
@@ -49,6 +58,8 @@ def submit(request,store_id):
         job.status=CatalogJob.STATUS_RECEIVED
         profile=form.cleaned_data.get("supplier_profile")
         job.mapping_snapshot=dict(profile.mapping) if profile else {}
+        job.baseline_sha256=submitted_hash(form.cleaned_data["baseline"])
+        job.supplier_sha256=submitted_hash(form.cleaned_data["supplier_update"])
         job.save()
         CatalogEvent.objects.create(job=job,actor=request.user,kind="submitted",
                                     detail="CSV files accepted")
