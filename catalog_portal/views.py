@@ -42,11 +42,15 @@ def dashboard(request):
         store_id__in=operator_store_ids,
         status__in=[CatalogJob.STATUS_FAILED,CatalogJob.STATUS_REVIEW]
     ).select_related("store").order_by("created_at")[:50]
+    issue_attention=CustomerIssue.objects.filter(
+        store_id__in=operator_store_ids,status=CustomerIssue.STATUS_OPEN
+    ).select_related("store","job").order_by("created_at")[:50]
     scorecard=metrics.operator_scorecard(request.user)
     inbox=list(notices.visible_to(request.user)[:30])
     return render(request,"dashboard.html",{
         "memberships":memberships,"jobs":jobs,"operator_attention":attention,
         "scorecard":scorecard,"inbox":inbox,
+        "issue_attention":issue_attention,
     })
 
 @login_required
