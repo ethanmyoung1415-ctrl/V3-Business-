@@ -146,6 +146,20 @@ class RestrictedExcelIntakeTests(unittest.TestCase):
         result=xlsx_intake.convert(self.source,self.dest)
         self.assertEqual(result["rows"],1)
         self.assertIn("000987,0",self.dest.read_text())
+    def test_1000_row_supplier_workbook_preserves_values(self):
+        rows=[[f"SKU-{i:06d}",0 if i%19==0 else (i%100)+1]
+              for i in range(1000)]
+        make_xlsx(self.source,["sku","stock"],rows)
+        result=xlsx_intake.convert(self.source,self.dest)
+        self.assertEqual(result["rows"],1000)
+        import csv
+        with self.dest.open(newline="",encoding="utf-8") as stream:
+            records=list(csv.DictReader(stream))
+        self.assertEqual(len(records),1000)
+        self.assertEqual(records[0]["sku"],"SKU-000000")
+        self.assertEqual(records[0]["stock"],"0")
+        self.assertEqual(records[19]["stock"],"0")
+        self.assertEqual(records[-1]["sku"],"SKU-000999")
     def test_cannot_overwrite_existing(self):
         make_xlsx(self.source,["sku","stock"],[["A",0]])
         self.dest.write_text("important")
