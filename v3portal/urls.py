@@ -11,6 +11,7 @@ urlpatterns=[
     path("stores/<uuid:store_id>/submit/",views.submit,name="submit"),
     path("stores/<uuid:store_id>/supplier-profiles/",views.configure_supplier,name="configure_supplier"),
     path("jobs/<uuid:job_id>/",views.job_detail,name="job_detail"),
+    path("jobs/<uuid:job_id>/automation-preview/",views.automation_preview,name="automation_preview"),
     path("jobs/<uuid:job_id>/decide/",views.decision,name="decision"),
     path("jobs/<uuid:job_id>/export/",views.export_job,name="export_job"),
     path("jobs/<uuid:job_id>/batch-approve/",views.batch_approve,name="batch_approve"),
