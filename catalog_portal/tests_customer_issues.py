@@ -66,6 +66,25 @@ class QualityIssueTests(TestCase):
         self.assertEqual(self.client.post(path,data).status_code,302)
         self.assertEqual(self.client.post(path,data).status_code,404)
         self.assertEqual(CatalogEvent.objects.filter(job=self.job,kind="issue_resolved").count(),1)
+    def test_open_issues_surface_in_operator_dashboard_only(self):
+        issue=self.open_case()
+        self.client.force_login(self.operator)
+        page=self.client.get(reverse("dashboard"))
+        self.assertContains(page,"Unresolved customer issues")
+        self.assertContains(page,issue.subject)
+        self.assertEqual(page.context["scorecard"]["unresolved_customer_issues"],1)
+        self.client.force_login(self.customer)
+        page=self.client.get(reverse("dashboard"))
+        self.assertNotContains(page,"Unresolved customer issues")
+        self.assertNotContains(page,issue.subject)
+    def test_resolved_issue_disappears_from_operator_priority_queue(self):
+        issue=self.open_case()
+        self.client.force_login(self.operator)
+        self.client.post(reverse("resolve_quality_issue",args=[issue.pk]),{
+            "resolution":"Reviewed the synthetic file and explained expected output."})
+        page=self.client.get(reverse("dashboard"))
+        self.assertNotContains(page,"Unresolved customer issues")
+        self.assertEqual(page.context["scorecard"]["unresolved_customer_issues"],0)
     def test_malformed_message_not_accepted(self):
         self.client.force_login(self.customer)
         self.assertEqual(self.client.post(reverse("open_quality_issue",args=[self.job.pk]),{
