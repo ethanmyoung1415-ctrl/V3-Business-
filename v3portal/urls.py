@@ -13,6 +13,7 @@ urlpatterns=[
     path("jobs/<uuid:job_id>/export/",views.export_job,name="export_job"),
     path("jobs/<uuid:job_id>/batch-approve/",views.batch_approve,name="batch_approve"),
     path("jobs/<uuid:job_id>/exclude-hold/",views.exclude_hold,name="exclude_hold"),
+    path("jobs/<uuid:job_id>/retry/",views.retry_failed,name="retry_failed"),
     path("jobs/<uuid:job_id>/download/",views.download,name="download"),
     path("jobs/<uuid:job_id>/report/",views.download_report,name="download_report"),
 ]
