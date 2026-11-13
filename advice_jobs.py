@@ -58,7 +58,9 @@ def prepare(db,job,provider=None,max_items=100):
                 raw=provider(advisor.request_payload(change))
                 result=advisor.validate_response(change,raw)
                 source="provider"
-            except (ValueError,TypeError,KeyError,UnicodeError,json.JSONDecodeError,RuntimeError):
+            except Exception:
+                # Providers are untrusted/optional. Even an unexpected timeout
+                # must not affect approval state or stop local processing.
                 result=advisor.deterministic_advice(change)
                 source="fallback"
                 provider_failures+=1
