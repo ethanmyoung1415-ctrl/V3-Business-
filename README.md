@@ -16,6 +16,10 @@ python benchmark.py --rows 1000
 
 The demo runs two isolated **fictional** customer jobs, explicitly approves their synthetic updates, exports verified CSVs, and tests that customer B cannot read customer A's job. Nothing is sent online.
 
+## Authenticated preproduction web portal
+
+A separate Django-based, **local-only** portal now supports mock customer logins, tenant-scoped uploads, operator review and verified downloads. Its server is not approved for the public internet. See [Portal Demo](docs/PORTAL_DEMO.md). The portal uses a local polling worker and has no payment processor or live e-commerce integration.
+
 ## Local operator console
 
 ```bash
@@ -51,6 +55,7 @@ For each sample job, create a subdirectory containing `baseline.csv`, `update.cs
 | `identity.py`, `secure_operations.py` | Password/session and tenant-scoped service authorization, **not yet integrated with browser** |
 | `backup.py` | Offline database-only backup and integrity-checked restore |
 | `supervisor.py` | Ranked operator exception briefings, no autonomous decisions |
+| `catalog_portal/`, `v3portal/` | Django preproduction login, upload, review and download workflow |
 | `demo.py`, `benchmark.py` | Synthetic workflows and workload checks |
 
 ## Safety model
