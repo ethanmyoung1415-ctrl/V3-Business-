@@ -23,6 +23,7 @@ def validate_csv(upload,baseline=False):
             raise ValueError("unsupported or duplicate columns")
         if baseline and set(fields)!=ALLOWED:
             raise ValueError("baseline requires sku, title, price and stock")
+        count=0
         for count,row in enumerate(reader,1):
             if count>100000:raise ValueError("too many rows")
             if None in row or any(v is None for v in row.values()):
