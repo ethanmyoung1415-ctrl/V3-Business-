@@ -11,6 +11,7 @@ from django.db import transaction
 import engine
 import intake
 import mapping as mapper
+import xlsx_intake
 import qa
 import advice_jobs
 from .models import CatalogJob,Membership,CatalogEvent,CatalogConfirmation
@@ -80,17 +81,31 @@ def process_received(job_id):
         if (engine.digest(job.baseline.path)!=job.baseline_sha256 or
                 engine.digest(job.supplier_update.path)!=job.supplier_sha256):
             raise ValueError("original upload changed since submission")
-        snapshots=intake.stage_pair(job.baseline.path,job.supplier_update.path,database)
+        snapshots=intake.stage_pair(
+            job.baseline.path,job.supplier_update.path,database,allow_xlsx=True)
         if (snapshots[0][1]!=job.baseline_sha256 or
                 snapshots[1][1]!=job.supplier_sha256):
             raise ValueError("staged source differs from submitted upload")
+        baseline_input=snapshots[0][0]
         supplier_input=snapshots[1][0]
+        # Original XLSX bytes stay immutable and source-hashed. The engine
+        # receives a separately checked, canonical CSV snapshot.
+        if baseline_input.suffix.lower()==".xlsx":
+            canonical=baseline_input.parent/(str(uuid.uuid4())+"-baseline.csv")
+            xlsx_intake.convert(baseline_input,canonical,baseline=True)
+            baseline_input=canonical
+        if supplier_input.suffix.lower()==".xlsx":
+            if job.mapping_snapshot:
+                raise ValueError("supplier XLSX mapping is not supported")
+            canonical=supplier_input.parent/(str(uuid.uuid4())+"-supplier.csv")
+            xlsx_intake.convert(supplier_input,canonical)
+            supplier_input=canonical
         if job.mapping_snapshot:
             mapper.validate_mapping(job.mapping_snapshot)
             converted=supplier_input.parent/(str(uuid.uuid4())+"-normalized.csv")
             mapper.normalize_csv(supplier_input,converted,job.mapping_snapshot)
             supplier_input=converted
-        result=engine.ingest(database,snapshots[0][0],supplier_input,
+        result=engine.ingest(database,baseline_input,supplier_input,
                              job_id=str(job.pk))
         job.engine_job_id=uuid.UUID(result["job_id"])
         job.status=CatalogJob.STATUS_REVIEW
