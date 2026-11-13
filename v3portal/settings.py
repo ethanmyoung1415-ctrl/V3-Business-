@@ -26,6 +26,7 @@ MIDDLEWARE=[
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "v3portal.security_headers.PrivatePortalHeaders",
 ]
 ROOT_URLCONF="v3portal.urls"
 TEMPLATES=[{"BACKEND":"django.template.backends.django.DjangoTemplates",
