@@ -4,6 +4,7 @@
 <p>Received: {{ job.created_at }}</p>
 {% if job.status == "ready" %}
 <p><a href="{% url 'download' job.id %}">Download independently verified catalog CSV</a></p>
+<p><a href="{% url 'download_report' job.id %}">Download verified change report (JSON)</a></p>
 {% endif %}
 {% if can_review and details %}
 <h2>Operator review</h2>
