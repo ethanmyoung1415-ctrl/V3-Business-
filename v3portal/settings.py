@@ -43,8 +43,24 @@ TEMPLATES=[{"BACKEND":"django.template.backends.django.DjangoTemplates",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages"]}}]
 WSGI_APPLICATION="v3portal.wsgi.application"
-DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3",
-                      "NAME":BASE_DIR/".local-v3portal.sqlite3"}}
+# PostgreSQL compatibility is test-only. It never relaxes the localhost gate.
+POSTGRES_TEST_MODE=os.environ.get("V3_TEST_POSTGRES")=="1"
+if POSTGRES_TEST_MODE:
+    required={
+        "NAME":os.environ.get("V3_TEST_PG_DATABASE",""),
+        "USER":os.environ.get("V3_TEST_PG_USER",""),
+        "PASSWORD":os.environ.get("V3_TEST_PG_PASSWORD",""),
+        "HOST":os.environ.get("V3_TEST_PG_HOST","127.0.0.1"),
+        "PORT":os.environ.get("V3_TEST_PG_PORT","5432"),
+    }
+    if not all(required.values()):
+        raise RuntimeError("ephemeral PostgreSQL test settings are incomplete")
+    DATABASES={"default":{"ENGINE":"django.db.backends.postgresql",
+                         **required,"CONN_MAX_AGE":0,
+                         "OPTIONS":{"connect_timeout":5}}}
+else:
+    DATABASES={"default":{"ENGINE":"django.db.backends.sqlite3",
+                          "NAME":BASE_DIR/".local-v3portal.sqlite3"}}
 AUTH_PASSWORD_VALIDATORS=[
     {"NAME":"django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME":"django.contrib.auth.password_validation.MinimumLengthValidator",
