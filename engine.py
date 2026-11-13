@@ -60,7 +60,7 @@ def setup(db):
 def log(c,job,kind,details):
     c.execute("INSERT INTO events(at,job,kind,details) VALUES(?,?,?,?)",
               (timestamp(),job,kind,json.dumps(details,sort_keys=True)))
-def ingest(db,baseline,update):
+def ingest(db,baseline,update,job_id=None):
     setup(db)
     br,bfields=load(baseline);ur,ufields=load(update)
     if set(bfields)!=set(FIELDS): raise ValueError("baseline must include sku,title,price,stock")
@@ -76,7 +76,7 @@ def ingest(db,baseline,update):
             holds.append({"line":line,"reason":"blank SKU"});continue
         if sku in seen: dupes.add(sku)
         else: seen[sku]=row
-    job=str(uuid.uuid4())
+    job=str(uuid.UUID(str(job_id))) if job_id is not None else str(uuid.uuid4())
     for sku,row in seen.items():
         if sku in dupes:
             holds.append({"sku":sku,"reason":"duplicate SKU; all rows held"});continue
@@ -98,12 +98,29 @@ def ingest(db,baseline,update):
                 reason="large price change; manual review"
             elif field=="title": reason="title change; manual review"
             changes.append((str(uuid.uuid4()),job,sku,field,old,new,"pending",reason))
-    with sqlite3.connect(db) as c:
-        c.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?)",(job,timestamp(),"review",digest(baseline),digest(update),json.dumps(holds)))
-        c.executemany("INSERT INTO base VALUES(?,?,?,?,?)",[(job,r["sku"],r["title"],r["price"],r["stock"]) for r in base.values()])
+    baseline_hash=digest(baseline)
+    update_hash=digest(update)
+    with sqlite3.connect(db,timeout=30) as c:
+        c.execute("BEGIN IMMEDIATE")
+        existing=c.execute(
+            "SELECT status,baseline_hash,update_hash,holds FROM jobs WHERE id=?",
+            (job,)).fetchone()
+        if existing:
+            if existing[1]!=baseline_hash or existing[2]!=update_hash:
+                raise ValueError("processing ID reused with different source files")
+            if existing[0]!="review":
+                raise ValueError("previous processing job is not reviewable")
+            count=c.execute("SELECT COUNT(*) FROM changes WHERE job=?",
+                            (job,)).fetchone()[0]
+            return {"job_id":job,"changes":count,
+                    "holds":json.loads(existing[3]),"reused":True}
+        c.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?)",(
+            job,timestamp(),"review",baseline_hash,update_hash,json.dumps(holds)))
+        c.executemany("INSERT INTO base VALUES(?,?,?,?,?)",[
+            (job,r["sku"],r["title"],r["price"],r["stock"]) for r in base.values()])
         c.executemany("INSERT INTO changes VALUES(?,?,?,?,?,?,?,?)",changes)
         log(c,job,"ingest",{"changes":len(changes),"holds":holds})
-    return {"job_id":job,"changes":len(changes),"holds":holds}
+    return {"job_id":job,"changes":len(changes),"holds":holds,"reused":False}
 def review(db,job):
     setup(db)
     with sqlite3.connect(db) as c:
