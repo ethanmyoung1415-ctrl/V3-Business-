@@ -12,6 +12,7 @@ import engine
 import intake
 import mapping as mapper
 import qa
+import advice_jobs
 from .models import CatalogJob,Membership,CatalogEvent
 
 def backend_db(store_id):
@@ -52,6 +53,16 @@ def process_received(job_id):
         job.error_code=""
         job.save(update_fields=["engine_job_id","status","error_code","updated_at"])
         CatalogEvent.objects.create(job=job,kind="processed",detail="ready_for_operator_review")
+        # Advisory work is optional. It MUST NOT alter a job's result or
+        # change its approval state when unavailable.
+        try:
+            outcome=advice_jobs.prepare(database,result["job_id"],max_items=100)
+            CatalogEvent.objects.create(
+                job=job,kind="advisory",
+                detail="read_only_suggestions:"+str(outcome["prepared"]))
+        except Exception:
+            CatalogEvent.objects.create(
+                job=job,kind="advisory",detail="unavailable_deterministic_review_still_possible")
         return {"processed":True,"status":"review","job_id":str(job.id),
                 "engine_job_id":result["job_id"],
                 "holds":len(result["holds"]),"changes":result["changes"]}
