@@ -3,6 +3,11 @@
 <li>{{ membership.store.name }} — {{ membership.role }}
 <a href="{% url 'submit' membership.store.id %}">Submit test catalog</a></li>
 {% empty %}<li>No stores assigned.</li>{% endfor %}</ul>
+{% if operator_attention %}
+<h2>Needs your attention</h2><ul>{% for job in operator_attention %}
+<li><a href="{% url 'job_detail' job.id %}">{{ job.store.name }}: {{ job.status }}</a></li>
+{% endfor %}</ul>
+{% endif %}
 <h2>Recent submissions</h2><ul>{% for job in jobs %}
 <li><a href="{% url 'job_detail' job.id %}">{{ job.id }}</a> — {{ job.store.name }} — {{ job.status }}</li>
 {% empty %}<li>No submissions.</li>{% endfor %}</ul>
