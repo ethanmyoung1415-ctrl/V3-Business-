@@ -9,7 +9,7 @@ V3 is an AI-assisted *managed catalog change-control service* under development.
 Python 3.10+ required:
 
 ```bash
-python -m unittest discover -v
+python -m unittest discover -v -p 'test_*.py'
 python demo.py
 python benchmark.py --rows 1000
 ```
