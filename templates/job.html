@@ -11,6 +11,15 @@
 <ul>{% for hold in details.holds %}
 <li>{{ hold }}</li>{% empty %}<li>No holds.</li>{% endfor %}</ul>
 <h3>Proposed changes</h3>
+<p>Optional: after reviewing the supplier evidence, an operator may batch-approve
+only small nonzero stock changes (at most five units and ten percent).
+Pricing, titles, zero-stock and all ambiguous changes remain pending.</p>
+<form action="{% url 'batch_approve' job.id %}" method="post">
+{% csrf_token %}
+<label>Verification reason <input type="text" name="reason" minlength="8" maxlength="300" required></label>
+<button type="submit">Approve eligible small stock changes</button>
+</form>
+
 {% for change in details.changes %}
 <section>
 <p><strong>{{ change.sku }}</strong> · {{ change.field }}</p>
