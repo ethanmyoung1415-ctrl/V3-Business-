@@ -32,9 +32,17 @@ class WorkQueueTests(unittest.TestCase):
         b=enqueue(self.db,self.baseline,self.update)
         self.assertEqual(a["work_id"],b["work_id"])
         self.assertTrue(b["already_exists"])
-    def test_changed_input_fails_closed(self):
+    def test_modified_original_does_not_change_queued_snapshot(self):
         enqueue(self.db,self.baseline,self.update)
         self.update.write_text("sku,stock\\nA,8\\n")
+        result=work_once(self.db)
+        self.assertEqual(result["status"],"review")
+        self.assertEqual(review(self.db,result["job_id"])["changes"][0]["new"],"0")
+    def test_corrupted_staged_file_fails_closed(self):
+        enqueue(self.db,self.baseline,self.update)
+        with sqlite3.connect(self.db) as conn:
+            snapshot=conn.execute("SELECT update_path FROM work_queue").fetchone()[0]
+        Path(snapshot).write_text("sku,stock\\nA,8\\n")
         result=work_once(self.db)
         self.assertEqual(result["status"],"retry_or_failed")
         self.assertEqual(dashboard(self.db)["counts"]["failed"],1)
