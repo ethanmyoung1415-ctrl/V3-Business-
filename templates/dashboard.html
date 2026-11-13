@@ -7,7 +7,21 @@
 <small>No revenue or profit data connected; these are synthetic workflow metrics.</small>
 </section>
 {% endif %}
-<h1>My stores</h1><ul>{% for membership in memberships %}
+<h1>My stores</h1>
+{% if inbox %}
+<section aria-label="Private notifications">
+<h2>Notifications</h2><ul>
+{% for notice in inbox %}
+<li>
+<strong>{{ notice.kind }}</strong> — {{ notice.store.name }}
+<a href="{% url 'job_detail' notice.job.id %}">Open job</a>
+<form method="post" action="{% url 'mark_notice_read' notice.id %}">
+{% csrf_token %}<button type="submit">Mark read</button>
+</form>
+</li>
+{% endfor %}
+</ul></section>
+{% endif %}<ul>{% for membership in memberships %}
 <li>{{ membership.store.name }} — {{ membership.role }}
 <a href="{% url 'submit' membership.store.id %}">Submit test catalog</a></li>
 {% empty %}<li>No stores assigned.</li>{% endfor %}</ul>
