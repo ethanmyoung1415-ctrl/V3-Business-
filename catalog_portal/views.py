@@ -112,6 +112,16 @@ def exclude_hold(request,job_id):
 
 @login_required
 @require_POST
+def retry_failed(request,job_id):
+    job=accessible_job(request.user,job_id)
+    try:
+        services.request_retry(job,request.user,request.POST.get("reason",""))
+    except (PermissionError,ValueError,OSError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.pk)
+
+@login_required
+@require_POST
 def batch_approve(request,job_id):
     job=accessible_job(request.user,job_id)
     try:
