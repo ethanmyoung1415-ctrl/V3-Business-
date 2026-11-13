@@ -5,9 +5,9 @@ from django.http import Http404,FileResponse,HttpResponse
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
-from .forms import JobForm,SupplierProfileCreateForm,CustomerIssueForm,CustomerResolutionForm
+from .forms import LocalInvitationJoinForm,JobForm,SupplierProfileCreateForm,CustomerIssueForm,CustomerResolutionForm
 from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile,CustomerIssue
-from . import services,metrics,notices,issues,emergency
+from . import services,invitations,metrics,notices,issues,emergency
 import triage
 import autonomy_simulator
 import engine
@@ -32,6 +32,28 @@ def accessible_job(user,job_id):
     job=get_object_or_404(CatalogJob.objects.select_related("store"),pk=job_id)
     accessible_store(user,job.store_id)
     return job
+
+@require_http_methods(["GET","POST"])
+def join_local_demo(request):
+    """Synthetic-only invitation redemption, never general public signup."""
+    from django.conf import settings
+    if not getattr(settings,"LOCAL_DEV",False):
+        raise Http404()
+    form=LocalInvitationJoinForm(request.POST or None)
+    if request.method=="POST" and form.is_valid():
+        try:
+            invitations.redeem(
+                form.cleaned_data["code"],
+                form.cleaned_data["username"],
+                form.cleaned_data["password"])
+        except (ValueError,PermissionError,Exception) as exc:
+            # Deliberately generic: don't disclose whether code, password,
+            # or username caused failure. A future public service requires
+            # distributed abuse prevention.
+            form.add_error(None,"Invitation could not be accepted.")
+        else:
+            return redirect("login")
+    return render(request,"join_local_demo.html",{"form":form})
 
 @login_required
 def dashboard(request):
