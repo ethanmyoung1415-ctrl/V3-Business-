@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>V3 Operations Guard</title>
+<style>body{font:16px system-ui;background:#f5f7fb;color:#172238;max-width:900px;margin:0 auto;padding:24px}
+main,header{background:white;border:1px solid #dde3ec;padding:22px;border-radius:10px;margin-bottom:15px}
+a{color:#23589c}button{padding:10px 14px;background:#23589c;color:white;border:0;border-radius:5px;cursor:pointer}
+input{margin:8px 0}li{margin:8px 0}.warning{color:#9b2f25}
+</style></head><body><header><strong>V3 Operations Guard</strong>
+<p class="warning">PREPRODUCTION — SYNTHETIC DATA ONLY</p>
+{% if user.is_authenticated %}<form action="{% url 'logout' %}" method="post">{% csrf_token %}<button type="submit">Log out</button></form>{% endif %}
+</header><main>{% block content %}{% endblock %}</main></body></html>
