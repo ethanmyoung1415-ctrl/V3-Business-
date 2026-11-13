@@ -13,9 +13,14 @@ def verify(db,job,output):
     if not path.is_file():raise ValueError("export file not found")
     with sqlite3.connect(db) as conn:
         conn.row_factory=sqlite3.Row
-        record=conn.execute("SELECT holds FROM jobs WHERE id=?",(job,)).fetchone()
+        record=conn.execute("SELECT holds,status FROM jobs WHERE id=?",(job,)).fetchone()
         if not record:raise ValueError("unknown job")
         if json.loads(record["holds"]):raise ValueError("job has unresolved holds")
+        # After release, the independently recorded export digest must still
+        # match the bytes being downloaded, not merely mutable row state.
+        release_events=[r["details"] for r in conn.execute(
+            "SELECT details FROM events WHERE job=? AND kind='export'",(job,))]
+
         changes=[dict(r) for r in conn.execute(
             "SELECT sku,field,old,new,status FROM changes WHERE job=?",(job,))]
         if any(r["status"]=="pending" for r in changes):
@@ -50,6 +55,18 @@ def verify(db,job,output):
     for missing in sorted(set(expected)-seen):
         mismatches.append({"sku":missing,"reason":"missing export SKU"})
     sha=hashlib.sha256(path.read_bytes()).hexdigest()
+    if record["status"]=="exported":
+        if len(release_events)!=1:
+            raise ValueError("missing or duplicate export release record")
+        try:released=json.loads(release_events[0])
+        except (ValueError,TypeError):raise ValueError("invalid export release record")
+        if (not isinstance(released,dict) or
+                released.get("independent_qa")!="passed" or
+                released.get("sha256")!=sha):
+            raise ValueError("released export hash does not match current file")
+    elif release_events:
+        raise ValueError("export release exists for non-exported job")
+
     return {"passed":not mismatches,"job_id":job,"expected_rows":len(expected),
             "actual_rows":len(seen),"sha256":sha,"mismatches":mismatches[:100],
             "truncated":len(mismatches)>100}
