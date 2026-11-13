@@ -249,7 +249,7 @@ def export(db,job,path):
         import audit_integrity
         audit=audit_integrity.verify_job(db,job)
         if not audit["passed"]:
-            raise ValueError("audit integrity failed; export blocked: "+",".join(audit["failures"]))
+            raise ValueError("audit reconciliation failed; export blocked: "+",".join(audit["failures"]))
         rows={r["sku"]:dict(r) for r in c.execute(
             "SELECT sku,title,price,stock FROM base WHERE job=?",(job,))}
         for change in changes:
