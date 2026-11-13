@@ -75,3 +75,14 @@ See [Production Gate](docs/PRODUCTION_GATE.md), [Operator Playbook](docs/OPERATO
 **Before any real customer data:** complete identity integration, enforced tenant isolation, secure hosted intake, file retention and deletion, encrypted storage and backups, monitoring, disaster recovery, legal/payment arrangements, and an independent security review. Demonstrate measured accuracy and customer value in controlled pilots.
 
 **Design principle:** automation executes routine work; deterministic safeguards enforce limits; people authorize consequential changes.
+
+## Latest local milestones
+- The portal now rejects unsafe or unprocessable CSVs before creating jobs and explicitly blocks non-loopback traffic. Public deployment is disabled at the configuration level.
+- Portal events record submissions, review decisions, export verification, downloads and synthetic-upload deletion. The operator sees prioritized jobs across stores they are authorized to manage.
+- A small-stock **human-triggered** batch approval exists, limited to nonzero stock movements of at most 5 units and 10%; price, title, zero-stock and unusual changes remain individually reviewed.
+- A dry-run-first local retention command can delete old terminal **synthetic source uploads**, but this is not complete customer-data erasure.
+- A stale-portal-job recovery command marks interrupted processing failed for investigation rather than retrying silently.
+- A proposed marketing concept is in [site/index.html](site/index.html), with no tracking, data collection or checkout.
+- Commercial pilot prerequisites and adult account responsibilities are documented in [PILOT_PLAN.md](docs/PILOT_PLAN.md) and [ADULT_HANDOFF.md](docs/ADULT_HANDOFF.md).
+
+Neither the engine nor portal has been tested or approved as a commercial hosted service. No real customer data should be processed.
