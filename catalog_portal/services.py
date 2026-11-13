@@ -11,7 +11,7 @@ from django.db import transaction
 import engine
 import intake
 import qa
-from .models import CatalogJob,Membership
+from .models import CatalogJob,Membership,CatalogEvent
 
 def backend_db(store_id):
     identifier=str(uuid.UUID(str(store_id)))
@@ -44,6 +44,7 @@ def process_received(job_id):
         job.status=CatalogJob.STATUS_REVIEW
         job.error_code=""
         job.save(update_fields=["engine_job_id","status","error_code","updated_at"])
+        CatalogEvent.objects.create(job=job,kind="processed",detail="ready_for_operator_review")
         return {"processed":True,"status":"review","job_id":str(job.id),
                 "engine_job_id":result["job_id"],
                 "holds":len(result["holds"]),"changes":result["changes"]}
@@ -52,6 +53,7 @@ def process_received(job_id):
         job.status=CatalogJob.STATUS_FAILED
         job.error_code="processing_error"
         job.save(update_fields=["status","error_code","updated_at"])
+        CatalogEvent.objects.create(job=job,kind="failed",detail="processing_error")
         raise
 
 def process_received_batch(max_jobs=10):
@@ -76,8 +78,11 @@ def decide(job,user,change_id,decision,reason):
         raise ValueError("change belongs to another job")
     if decision not in ("approved","rejected") or not reason.strip():
         raise ValueError("invalid decision")
-    return engine.decide(backend_db(job.store_id),change_id,decision,
+    result=engine.decide(backend_db(job.store_id),change_id,decision,
                          f"web-operator:{user.pk}",reason.strip())
+    CatalogEvent.objects.create(job=job,actor=user,kind=decision,
+                                detail="change_id:"+str(change_id)[:60])
+    return result
 
 def output_path(job):
     identifier=str(uuid.UUID(str(job.id)))
@@ -94,6 +99,8 @@ def prepare_export(job,user):
     job.export_sha256=result["sha256"]
     job.status=CatalogJob.STATUS_READY
     job.save(update_fields=["export_sha256","status","updated_at"])
+    CatalogEvent.objects.create(job=job,actor=user,kind="exported",
+                                detail="independent_qa_passed")
     return result
 
 def verified_download_path(job):
