@@ -1,5 +1,6 @@
 import hashlib
 from django.contrib.auth.decorators import login_required
+from django.core.files import File
 from django.http import Http404,FileResponse,HttpResponse
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
@@ -68,7 +69,25 @@ def submit(request,store_id):
         job.status=CatalogJob.STATUS_RECEIVED
         profile=form.cleaned_data.get("supplier_profile")
         job.mapping_snapshot=dict(profile.mapping) if profile else {}
-        job.baseline_sha256=submitted_hash(form.cleaned_data["baseline"])
+        if form.cleaned_data.get("use_confirmed_baseline"):
+            confirmed=services.latest_confirmed(store)
+            try:
+                if confirmed is None:
+                    raise ValueError("No confirmed catalog available")
+                source_job=confirmed.job
+                source=services.verified_download_path(source_job)
+                if confirmed.export_sha256!=source_job.export_sha256:
+                    raise ValueError("Confirmation fingerprint changed")
+                with source.open("rb") as stream:
+                    job.baseline.save("confirmed_baseline.csv",File(stream),save=False)
+                job.baseline_sha256=engine.digest(job.baseline.path)
+                job.baseline_source_job=source_job
+            except (ValueError,OSError):
+                form.add_error("use_confirmed_baseline",
+                               "The confirmed snapshot is unavailable or failed QA; provide a new baseline.")
+                return render(request,"submit.html",{"store":store,"form":form})
+        else:
+            job.baseline_sha256=submitted_hash(form.cleaned_data["baseline"])
         job.supplier_sha256=submitted_hash(form.cleaned_data["supplier_update"])
         job.save()
         CatalogEvent.objects.create(job=job,actor=request.user,kind="submitted",
@@ -93,8 +112,12 @@ def job_detail(request,job_id):
             change["advice"]=triage.assess_change(change)
             change["advisory_record"]=advisories.get(change["id"])
     events=job.portal_events.select_related("actor").order_by("-created_at")[:30]
+    can_confirm=Membership.objects.filter(
+        user=request.user,store=job.store,role=Membership.ROLE_CUSTOMER).exists()
+    is_confirmed=hasattr(job,"confirmed_import")
     return render(request,"job.html",{"job":job,"details":details,
-                  "can_review":can_review,"events":events})
+                  "can_review":can_review,"events":events,
+                  "can_confirm":can_confirm,"is_confirmed":is_confirmed})
 
 @login_required
 @require_POST
@@ -126,6 +149,18 @@ def retry_failed(request,job_id):
     job=accessible_job(request.user,job_id)
     try:
         services.request_retry(job,request.user,request.POST.get("reason",""))
+    except (PermissionError,ValueError,OSError):
+        raise Http404()
+    return redirect("job_detail",job_id=job.pk)
+
+@login_required
+@require_POST
+def confirm_store_import(request,job_id):
+    job=accessible_job(request.user,job_id)
+    if request.POST.get("import_confirmed")!="yes":
+        raise Http404()
+    try:
+        services.confirm_import(job,request.user)
     except (PermissionError,ValueError,OSError):
         raise Http404()
     return redirect("job_detail",job_id=job.pk)
