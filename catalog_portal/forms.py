@@ -143,3 +143,18 @@ class CustomerResolutionForm(forms.Form):
         text=self.cleaned_data["resolution"].strip()
         if "\x00" in text:raise forms.ValidationError("Invalid resolution text")
         return text
+
+class LocalInvitationJoinForm(forms.Form):
+    """No public signup: requires a separately issued local one-use code."""
+    code=forms.CharField(min_length=30,max_length=100,
+        widget=forms.PasswordInput(render_value=False))
+    username=forms.RegexField(regex=r"^[a-zA-Z0-9._-]{3,50}$",max_length=50)
+    password=forms.CharField(min_length=12,max_length=128,
+        widget=forms.PasswordInput(render_value=False))
+    confirm_password=forms.CharField(min_length=12,max_length=128,
+        widget=forms.PasswordInput(render_value=False))
+    def clean(self):
+        data=super().clean()
+        if data.get("password")!=data.get("confirm_password"):
+            self.add_error("confirm_password","Passwords do not match.")
+        return data
