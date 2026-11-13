@@ -14,6 +14,7 @@ import mapping as mapper
 import qa
 import advice_jobs
 from .models import CatalogJob,Membership,CatalogEvent
+from . import notices
 
 def backend_db(store_id):
     identifier=str(uuid.UUID(str(store_id)))
@@ -62,6 +63,7 @@ def process_received(job_id):
         job.error_code=""
         job.save(update_fields=["engine_job_id","status","error_code","updated_at"])
         CatalogEvent.objects.create(job=job,kind="processed",detail="ready_for_operator_review")
+        notices.create(job,"needs_review","operator")
         # Advisory work is optional. It MUST NOT alter a job's result or
         # change its approval state when unavailable.
         try:
@@ -86,6 +88,12 @@ def process_received(job_id):
             job.error_code="processing_error"
         job.save(update_fields=["status","error_code","updated_at"])
         CatalogEvent.objects.create(job=job,kind="failed",detail="processing_error")
+        # Failure alerts are best-effort; the original processing error stays primary.
+        try:
+            notices.create(job,"job_failed","operator")
+            notices.create(job,"job_failed","customer")
+        except Exception:
+            pass
         raise
 
 def process_received_batch(max_jobs=10):
@@ -196,6 +204,7 @@ def prepare_export(job,user):
     job.save(update_fields=["export_sha256","status","updated_at"])
     CatalogEvent.objects.create(job=job,actor=user,kind="exported",
                                 detail="independent_qa_passed")
+    notices.create(job,"export_ready","customer")
     return result
 
 def verified_download_path(job):
