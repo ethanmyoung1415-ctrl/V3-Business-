@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods,require_POST
 from .forms import LocalInvitationJoinForm,JobForm,SupplierProfileCreateForm,CustomerIssueForm,CustomerResolutionForm
 from .models import Store,Membership,CatalogJob,CatalogEvent,SupplierProfile,CustomerIssue
-from . import services,invitations,metrics,notices,issues,emergency
+from . import services,invitations,metrics,notices,issues,emergency,admission
 import triage
 import autonomy_simulator
 import engine
@@ -113,6 +113,14 @@ def configure_supplier(request,store_id):
 @require_http_methods(["GET","POST"])
 def submit(request,store_id):
     store=accessible_store(request.user,store_id)
+    if request.method=="POST":
+        # Admission happens before parsing uploaded files into the form.
+        # Local-only guard; production requires a shared atomic quota service.
+        quota=admission.check(store,request.user)
+        if not quota["allowed"]:
+            response=HttpResponse("Submission limit reached. Try again later.",status=429)
+            response["Retry-After"]=str(quota["retry_after_seconds"])
+            return response
     form=JobForm(request.POST or None,request.FILES or None,store=store)
     if request.method=="POST" and form.is_valid():
         job=form.save(commit=False)
