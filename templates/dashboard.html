@@ -3,7 +3,7 @@
 <section aria-label="Operations scorecard">
 <h2>Operations scorecard</h2>
 <p>Jobs: {{ scorecard.jobs_total }} · Awaiting operator review: {{ scorecard.jobs_awaiting_review }}
-· Failed: {{ scorecard.jobs_failed }} · Verified exports ready: {{ scorecard.verified_exports_ready }}</p>
+· Failed: {{ scorecard.jobs_failed }} · Verified exports ready: {{ scorecard.verified_exports_ready }} · Open customer issues: {{ scorecard.unresolved_customer_issues }}</p>
 <small>No revenue or profit data connected; these are synthetic workflow metrics.</small>
 </section>
 {% endif %}
@@ -31,6 +31,13 @@
 {% endfor %}</ul>
 {% endif %}
 <p>Need help? Open the relevant job to report a catalog issue, or view its resolution.</p>
+{% if issue_attention %}
+<section aria-label="Customer quality issues awaiting resolution">
+<h2>Unresolved customer issues</h2><ul>
+{% for issue in issue_attention %}
+<li><a href="{% url 'job_detail' issue.job.id %}">{{ issue.store.name }}: {{ issue.subject }}</a></li>
+{% endfor %}</ul></section>
+{% endif %}
 <h2>Recent submissions</h2><ul>{% for job in jobs %}
 <li><a href="{% url 'job_detail' job.id %}">{{ job.id }}</a> — {{ job.store.name }} — {{ job.status }}</li>
 {% empty %}<li>No submissions.</li>{% endfor %}</ul>
