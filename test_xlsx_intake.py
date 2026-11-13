@@ -10,7 +10,7 @@ REL="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 def _letters(i):
     return chr(ord("A")+i)
 
-def make_xlsx(path,header,rows,*,formula=False,sheets=1,extra=None):
+def make_xlsx(path,header,rows,*,formula=False,sheets=1,extra=None,hidden_row=False,styled_numeric=False,merged=False):
     def sheet_xml():
         parts=[]
         for idx,values in enumerate([header]+rows,1):
@@ -20,12 +20,13 @@ def make_xlsx(path,header,rows,*,formula=False,sheets=1,extra=None):
                 if formula and idx==2 and col==1:
                     cells.append(f'<c r="{address}"><f>1+1</f><v>2</v></c>')
                 elif isinstance(value,int):
-                    cells.append(f'<c r="{address}"><v>{value}</v></c>')
+                    cells.append(f'<c r="{address}"{" s=\"1\"" if styled_numeric else ""}><v>{value}</v></c>')
                 else:
                     cells.append(f'<c r="{address}" t="inlineStr"><is><t>{value}</t></is></c>')
-            parts.append(f'<row r="{idx}">{"".join(cells)}</row>')
+            parts.append(f'<row r="{idx}"{" hidden=\"1\"" if hidden_row and idx==2 else ""}>{"".join(cells)}</row>')
+        merged_xml='<mergeCells count="1"><mergeCell ref="A1:B1"/></mergeCells>' if merged else ''
         return (f'<worksheet xmlns="{MAIN}"><sheetData>{"".join(parts)}'
-                '</sheetData></worksheet>')
+                '</sheetData>'+merged_xml+'</worksheet>')
     workbook=(f'<workbook xmlns="{MAIN}" xmlns:r="{REL}"><sheets>'+
               ''.join(f'<sheet name="Sheet{i}" sheetId="{i}" r:id="rId{i}"/>'
                       for i in range(1,sheets+1))+
@@ -85,6 +86,28 @@ class RestrictedExcelIntakeTests(unittest.TestCase):
     def test_unsafe_spreadsheet_title_is_rejected(self):
         make_xlsx(self.source,["sku","title"],[["A","=SUM(1)"]])
         with self.assertRaises(ValueError):
+            xlsx_intake.convert(self.source,self.dest)
+    def test_external_relationship_is_rejected(self):
+        relationship=(
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" '
+            'Target="https://example.invalid/collect" TargetMode="External"/>'
+            '</Relationships>')
+        make_xlsx(self.source,["sku","stock"],[["A",0]],
+                  extra={"xl/worksheets/_rels/sheet1.xml.rels":relationship})
+        with self.assertRaisesRegex(ValueError,"external relationships"):
+            xlsx_intake.convert(self.source,self.dest)
+    def test_hidden_rows_are_rejected(self):
+        make_xlsx(self.source,["sku","stock"],[["A",0]],hidden_row=True)
+        with self.assertRaisesRegex(ValueError,"hidden worksheet rows"):
+            xlsx_intake.convert(self.source,self.dest)
+    def test_styled_numeric_values_are_rejected(self):
+        make_xlsx(self.source,["sku","stock"],[["A",0]],styled_numeric=True)
+        with self.assertRaisesRegex(ValueError,"styled numeric"):
+            xlsx_intake.convert(self.source,self.dest)
+    def test_merged_cells_are_rejected(self):
+        make_xlsx(self.source,["sku","stock"],[["A",0]],merged=True)
+        with self.assertRaisesRegex(ValueError,"merged cells"):
             xlsx_intake.convert(self.source,self.dest)
     def test_cannot_overwrite_existing(self):
         make_xlsx(self.source,["sku","stock"],[["A",0]])
