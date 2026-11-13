@@ -1,9 +1,15 @@
 {% extends "base.html" %}{% block content %}
-<h1>Upload sample catalog for {{ store.name }}</h1>
+<h1>Upload a fictional catalog for {{ store.name }}</h1>
+<p>Use <strong>CSV</strong> or a <strong>simple single-sheet XLSX</strong>.
+Excel workbooks must have standard V3 headers (sku, title, price, stock as
+applicable), without formulas, macros, hidden/merged rows, external links or
+ambiguous number/date formatting. Custom supplier-header profiles currently
+require CSV.</p>
 <p>For recurring supplier updates, you may reuse the latest catalog you
-previously confirmed importing. Otherwise upload a new full baseline CSV.
-The service never assumes an external import was completed.</p>
+previously confirmed importing. Otherwise upload a new full baseline file.
+The system never assumes an external store import was completed.</p>
 <form method="post" enctype="multipart/form-data">{% csrf_token %}
-{{ form.as_p }}<button type="submit">Submit sample files</button></form>
-<p>Use fictional CSV data only; do not upload customer information.</p>
+{{ form.as_p }}<button type="submit">Submit fictional files</button></form>
+<p><strong>Preproduction demonstration only:</strong> do not upload real retailer
+catalogs, payment information, credentials or customer records.</p>
 {% endblock %}
