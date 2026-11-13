@@ -84,6 +84,18 @@ def decide(job,user,change_id,decision,reason):
                                 detail="change_id:"+str(change_id)[:60])
     return result
 
+def exclude_held_record(job,user,token,reason):
+    """Approve skipping one invalid source record; never approve its value."""
+    require_operator(user,job)
+    if job.status!=CatalogJob.STATUS_REVIEW or not job.engine_job_id:
+        raise ValueError("job not reviewable")
+    result=engine.exclude_hold(
+        backend_db(job.store_id),str(job.engine_job_id),token,
+        f"web-operator:{user.pk}",reason)
+    CatalogEvent.objects.create(job=job,actor=user,kind="hold_excluded",
+                                detail="held_source_row_excluded")
+    return result
+
 def approve_safe_stock_batch(job,user,reason):
     """Operator-triggered batch approval; does not affect risky or ambiguous changes."""
     require_operator(user,job)
