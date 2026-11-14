@@ -63,6 +63,10 @@ Pilots: processing time, exception rate, false positive/negative rate, rework, v
 ## Escalation rule
 AI can classify, draft, compare and propose, but does not invent inventory facts, bypass human authority, commit purchases or waive release gates. Uncertain changes remain pending until verified by an authorized source.
 
+## Ready-to-use execution materials
+- [First customer discovery kit and truthful outreach templates](FIRST_CUSTOMER_DISCOVERY_KIT.md)
+- [Paid pilot authorization, security and operating handoff](PAID_PILOT_HANDOFF_PACKET.md)
+
 ## Related documents
 - [Production gate](PRODUCTION_GATE.md)
 - [Pilot plan](PILOT_PLAN.md)
